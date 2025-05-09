@@ -13,7 +13,10 @@ import matplotlib.pyplot as plt
 time = str(datetime.datetime.now()).split(" ")[0]
 # Constants
 NUM_CLASSES = 5  # Adjust based on the number of roof material types
-DEVICE = torch.device("cpu")
+if torch.cuda.is_available():
+    DEVICE = torch.device("cuda")
+else:
+    DEVICE = torch.device("cpu")
 SATELLITE_FOLDER = "./images2/satellites"
 MASK_FOLDER = "./images2/masks"
 MODEL_PATH = "./gcn_roof_model.pth"

@@ -2,3 +2,5 @@
 *.pth
 *.jpg
 *.jpeg
+*.geojson
+*.xml
