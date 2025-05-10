@@ -7,7 +7,7 @@ SATELLITE_FOLDER = "./images/satellites"
 MASK_FOLDER = "./images/masks"
 
 # Function to check if a mask is completely or 90% black
-def is_black_or_mostly_black(mask_path, threshold=0.95):
+def is_black_or_mostly_black(mask_path, threshold=0.99):
     mask = cv2.imread(mask_path, cv2.IMREAD_GRAYSCALE)  # Read the mask as grayscale
     if mask is None:  # If the mask file cannot be read, return False
         return False

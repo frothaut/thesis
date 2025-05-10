@@ -17,8 +17,8 @@ if torch.cuda.is_available():
     DEVICE = torch.device("cuda")
 else:
     DEVICE = torch.device("cpu")
-SATELLITE_FOLDER = "./images2/satellites"
-MASK_FOLDER = "./images2/masks"
+SATELLITE_FOLDER = "./images/satellites"
+MASK_FOLDER = "./images/masks"
 MODEL_PATH = "./gcn_roof_model.pth"
 
 # Hyperparameter
