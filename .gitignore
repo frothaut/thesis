@@ -1,6 +1,16 @@
+*.pyc
+data/
+__pycache__/
+checkpoints/
+*.pth
+*.jpg
+venv/
+.idea/
+wandb/
 *.png
 *.pth
 *.jpg
 *.jpeg
 *.geojson
 *.xml
+*.gif
