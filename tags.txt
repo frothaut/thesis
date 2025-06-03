@@ -1,0 +1,82 @@
+Image SubfileType:Reduced-resolution image
+Image ImageWidth:256
+Image ImageLength:192
+Image BitsPerSample:[8, 8, 8]
+Image Compression:JPEG
+Image PhotometricInterpretation:6
+Image Make:DJI
+Image Model:FC3682
+Image StripOffsets:68906
+Image Orientation:Horizontal (normal)
+Image SamplesPerPixel:3
+Image StripByteCounts:10056
+Image Software:v01.64.0152
+Image DateTime:2025:05:23 11:33:12
+Image SubIFDs:[1034, 1364]
+Image ExifOffset:554
+GPS GPSVersionID:[2, 3, 0, 0]
+GPS GPSLatitudeRef:N
+GPS GPSLatitude:[44, 30, 27059/5000]
+GPS GPSLongitudeRef:E
+GPS GPSLongitude:[1, 4, 28567/1000]
+GPS GPSAltitudeRef:0
+GPS GPSAltitude:63/2
+Image GPSInfo:944
+Image XPComment:[84, 0, 121, 0, 112, 0, 101, 0, 61, 0, 78, 0, 44, 0, 32, 0, 77, 0, 111, 0, ... ]
+Image XPKeywords:[118, 0, 48, 0, 49, 0, 46, 0, 54, 0, 52, 0, 46, 0, 48, 0, 49, 0, 53, 0, ... ]
+Image Tag 0xC612:[1, 4, 0, 0]
+Image Tag 0xC613:[1, 3, 0, 0]
+Image Tag 0xC614:FC3682
+Image Tag 0xC621:[4353/2500, -11581/10000, 17/400, -1397/5000, 5743/5000, 4449/10000, 27/1250, 421/10000, 2383/2500]
+Image Tag 0xC622:[1031/1250, -2359/10000, -263/2000, -3831/5000, 7773/5000, 319/2000, -2199/10000, 727/2500, 2753/5000]
+Image Tag 0xC627:[1, 1, 1]
+Image Tag 0xC628:[474403/1000000, 1, 21389/40000]
+Image Tag 0xC62A:0
+Image Tag 0xC62B:1
+Image Tag 0xC62C:1
+Image Tag 0xC62E:1
+Image Tag 0xC62F:53HQM8M0M5BE9Y
+Image Tag 0xC630:[207/10, 207/10, 0/0, 0/0]
+Image Tag 0xC633:1
+Image Tag 0xC634:[68, 74, 73, 32, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ... ]
+Image Tag 0xC65A:17
+Image Tag 0xC65B:21
+Image Tag 0xC6F9:[18, 6, 1]
+Image Tag 0xC6FA:[(-5.375640392303467,), (1.0,), (1.0,), (-4.409485816955566,), (1.188641905784607,), (1.0,), (-2.7720413208007812,), (1.1394524574279785,), (1.0,), (-1.9916753768920898,), (1.0418823957443237,), (1.0,), (7.717207431793213,), (0.9816129207611084,), (1.0,), (10.832859992980957,), (0.9259166717529297,), (1.0,), (-4.813950538635254,), (1.0,), ... ]
+Image Tag 0xC6FB:[(-1.4364054203033447,), (1.0,), (1.0,), (1.9726769924163818,), (1.1129857301712036,), (1.0,), (-0.09366193413734436,), (1.1466163396835327,), (1.0,), (1.6859557628631592,), (1.1247633695602417,), (1.0,), (3.854348659515381,), (1.1041080951690674,), (1.0,), (3.5342979431152344,), (0.9985812306404114,), (1.0,), (-1.1006413698196411,), (1.0,), ... ]
+Image Tag 0xC6FC:[(0.0,), (0.0,), (0.16666699945926666,), (0.25046199560165405,), (0.33333298563957214,), (0.5521929860115051,), (0.5,), (0.747020959854126,), (0.6666669845581055,), (0.8746779561042786,), (0.8333329558372498,), (0.9542689919471741,), (1.0,), (1.0,)]
+Image Tag 0xC6FD:0
+Image Tag 0xC791:[0, 0]
+Image Tag 0xC792:[0, 0]
+Image Tag 0xC793:[0/0, 0/0]
+EXIF ExposureTime:1/2500
+EXIF FNumber:17/10
+EXIF ExposureProgram:Program Normal
+EXIF ISOSpeedRatings:100
+EXIF ExifVersion:0230
+EXIF DateTimeOriginal:2025:05:23 11:33:12
+EXIF DateTimeDigitized:2025:05:23 11:33:12
+EXIF ShutterSpeedValue:112877/10000
+EXIF ApertureValue:153/100
+EXIF ExposureBiasValue:0
+EXIF MaxApertureValue:153/100
+EXIF SubjectDistance:0
+EXIF MeteringMode:CenterWeightedAverage
+EXIF LightSource:Daylight
+EXIF Flash:No flash function
+EXIF FocalLength:168/25
+EXIF FileSource:Digital Camera
+EXIF SceneType:Directly Photographed
+EXIF CustomRendered:Normal
+EXIF ExposureMode:Auto Exposure
+EXIF WhiteBalance:Auto
+EXIF DigitalZoomRatio:1
+EXIF FocalLengthIn35mmFilm:24
+EXIF SceneCaptureType:Standard
+EXIF GainControl:None
+EXIF Contrast:Normal
+EXIF Saturation:Normal
+EXIF Sharpness:Normal
+EXIF SubjectDistanceRange:0
+EXIF BodySerialNumber:53HQM8M0M5BE9Y
+EXIF LensSpecification:[207/10, 207/10, 0/0, 0/0]

@@ -27,7 +27,7 @@ dir_checkpoint = Path('./checkpoints/')
 def train_model(
         model,
         device,
-        epochs: int = 5,
+        epochs: int = 1,
         batch_size: int = 1,
         learning_rate: float = 1e-5,
         val_percent: float = 0.1,
@@ -81,9 +81,9 @@ def train_model(
         epoch_loss = 0
         with tqdm(total=n_train, desc=f'Epoch {epoch}/{epochs}', unit='img') as pbar:
             for batch in train_loader:
-                print("starting batch")
+
                 images, true_masks = batch['image'], batch['mask']
-                print("images and masks loaded")
+
                 assert images.shape[1] == model.n_channels, \
                     f'Network has been defined with {model.n_channels} input channels, ' \
                     f'but loaded images have {images.shape[1]} channels. Please check that ' \
@@ -91,7 +91,7 @@ def train_model(
 
                 images = images.to(device=device, dtype=torch.float32, memory_format=torch.channels_last)
                 true_masks = true_masks.to(device=device, dtype=torch.long)
-                print("Pred Masks")
+
                 with torch.autocast(device.type if device.type != 'mps' else 'cpu', enabled=amp):
                     masks_pred = model(images)
                     if model.n_classes == 1:
@@ -104,24 +104,17 @@ def train_model(
                             F.one_hot(true_masks, model.n_classes).permute(0, 3, 1, 2).float(),
                             multiclass=True
                         )
-                print("Optimizer step")
+
                 optimizer.zero_grad(set_to_none=True)
-                print("Optimizer step2")
                 grad_scaler.scale(loss).backward()
-                print("Optimizer step3")
                 grad_scaler.unscale_(optimizer)
-                print("Optimizer step4")
                 torch.nn.utils.clip_grad_norm_(model.parameters(), gradient_clipping)
-                print("Optimizer step5")
                 grad_scaler.step(optimizer)
-                print("Optimizer step6")
                 grad_scaler.update()
-                print("Pbar update")
                 pbar.update(images.shape[0])
                 global_step += 1
                 epoch_loss += loss.item()
                 pbar.set_postfix(**{'loss (batch)': loss.item()})
-                print("Evaluation round")
                 
 
         if save_checkpoint:
@@ -134,7 +127,7 @@ def train_model(
 
 def get_args():
     parser = argparse.ArgumentParser(description='Train the UNet on images and target masks')
-    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=5, help='Number of epochs')
+    parser.add_argument('--epochs', '-e', metavar='E', type=int, default=1, help='Number of epochs')
     parser.add_argument('--batch-size', '-b', dest='batch_size', metavar='B', type=int, default=1, help='Batch size')
     parser.add_argument('--learning-rate', '-l', metavar='LR', type=float, default=1e-5,
                         help='Learning rate', dest='lr')
