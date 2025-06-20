@@ -62,3 +62,4 @@ async def save_polygons(request: Request):
         return {"status": "ok"}
     except Exception as e:
         return {"error": str(e)}
+    #uvicorn main:app --reload --host 0.0.0.0 --port 8000
