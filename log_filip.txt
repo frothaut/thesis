@@ -1,4 +1,5 @@
 # Log 16/06/1998 - Jonathan
+# Log 16/06/1998 - Jonathan
 
 
 Train Ep 0: 100%|██████████| 315/315 [07:47<00:00,  1.48s/it]
@@ -280,3 +281,566 @@ Class Detection Counts (Train):
 Class 0: 307700380 pixels detected
 Class 1: 20837533 pixels detected
 Class 2: 1763527 pixels detected
+Loading saved model from best_unet.pth
+Train Ep 0: 100%|██████████| 315/315 [34:05<00:00,  6.49s/it]
+Val: 100%|██████████| 315/315 [07:07<00:00,  1.36s/it]
+Epoch 0 — Train Loss: 0.2996 | Val Loss: 0.4385 | Val Dice: 0.3121
+Class Detection Counts (Train):
+Class 0: 269214115 pixels detected
+Class 1: 38672744 pixels detected
+Class 2: 22414581 pixels detected
+Train Ep 1: 100%|██████████| 315/315 [32:18<00:00,  6.15s/it]
+Val: 100%|██████████| 315/315 [07:53<00:00,  1.50s/it]
+Epoch 1 — Train Loss: 0.3126 | Val Loss: 0.2069 | Val Dice: 0.3558
+Class Detection Counts (Train):
+Class 0: 310867441 pixels detected
+Class 1: 18219911 pixels detected
+Class 2: 1214088 pixels detected
+Train Ep 2: 100%|██████████| 315/315 [27:10<00:00,  5.18s/it]
+Val: 100%|██████████| 315/315 [07:13<00:00,  1.38s/it]
+Epoch 2 — Train Loss: 0.2779 | Val Loss: 0.2023 | Val Dice: 0.3540
+Class Detection Counts (Train):
+Class 0: 308961310 pixels detected
+Class 1: 17553290 pixels detected
+Class 2: 3786840 pixels detected
+Train Ep 3: 100%|██████████| 315/315 [27:40<00:00,  5.27s/it]
+Val: 100%|██████████| 315/315 [07:11<00:00,  1.37s/it]
+Epoch 3 — Train Loss: 0.2846 | Val Loss: 0.2273 | Val Dice: 0.3442
+Class Detection Counts (Train):
+Class 0: 297984160 pixels detected
+Class 1: 31909257 pixels detected
+Class 2: 408023 pixels detected
+Train Ep 4: 100%|██████████| 315/315 [30:41<00:00,  5.84s/it]
+Val: 100%|██████████| 315/315 [07:11<00:00,  1.37s/it]
+Epoch 4 — Train Loss: 0.2925 | Val Loss: 0.2439 | Val Dice: 0.3426
+Class Detection Counts (Train):
+Class 0: 302372989 pixels detected
+Class 1: 27231611 pixels detected
+Class 2: 696840 pixels detected
+Train Ep 5: 100%|██████████| 315/315 [31:38<00:00,  6.03s/it]
+Val: 100%|██████████| 315/315 [07:20<00:00,  1.40s/it]
+Epoch 5 — Train Loss: 0.2716 | Val Loss: 0.2800 | Val Dice: 0.3411
+Class Detection Counts (Train):
+Class 0: 290780436 pixels detected
+Class 1: 37619925 pixels detected
+Class 2: 1901079 pixels detected
+Train Ep 6: 100%|██████████| 315/315 [27:51<00:00,  5.30s/it]
+Val: 100%|██████████| 315/315 [07:10<00:00,  1.37s/it]
+Epoch 6 — Train Loss: 0.2841 | Val Loss: 0.1836 | Val Dice: 0.3561
+Class Detection Counts (Train):
+Class 0: 297376873 pixels detected
+Class 1: 29829690 pixels detected
+Class 2: 3094877 pixels detected
+Train Ep 7: 100%|██████████| 315/315 [34:22<00:00,  6.55s/it]
+Val: 100%|██████████| 315/315 [07:23<00:00,  1.41s/it]
+Epoch 7 — Train Loss: 0.2646 | Val Loss: 0.1725 | Val Dice: 0.3554
+Class Detection Counts (Train):
+Class 0: 305722019 pixels detected
+Class 1: 23240333 pixels detected
+Class 2: 1339088 pixels detected
+Train Ep 8: 100%|██████████| 315/315 [35:07<00:00,  6.69s/it]
+Val: 100%|██████████| 315/315 [07:12<00:00,  1.37s/it]
+Epoch 8 — Train Loss: 0.2464 | Val Loss: 0.1830 | Val Dice: 0.3582
+Class Detection Counts (Train):
+Class 0: 301863865 pixels detected
+Class 1: 24430357 pixels detected
+Class 2: 4007218 pixels detected
+Train Ep 9: 100%|██████████| 315/315 [44:07<00:00,  8.40s/it]
+Val: 100%|██████████| 315/315 [07:22<00:00,  1.40s/it]
+Epoch 9 — Train Loss: 0.2399 | Val Loss: 0.2058 | Val Dice: 0.3549
+Class Detection Counts (Train):
+Class 0: 305517896 pixels detected
+Class 1: 18058332 pixels detected
+Class 2: 6725212 pixels detected
+Train Ep 10: 100%|██████████| 315/315 [38:48<00:00,  7.39s/it]
+Val: 100%|██████████| 315/315 [07:15<00:00,  1.38s/it]
+Epoch 10 — Train Loss: 0.2695 | Val Loss: 0.2165 | Val Dice: 0.3475
+Class Detection Counts (Train):
+Class 0: 290187657 pixels detected
+Class 1: 39132250 pixels detected
+Class 2: 981533 pixels detected
+Train Ep 11: 100%|██████████| 315/315 [42:34<00:00,  8.11s/it]
+Val: 100%|██████████| 315/315 [07:08<00:00,  1.36s/it]
+Epoch 11 — Train Loss: 0.2408 | Val Loss: 0.2215 | Val Dice: 0.3594
+Class Detection Counts (Train):
+Class 0: 312872412 pixels detected
+Class 1: 17231524 pixels detected
+Class 2: 197504 pixels detected
+Train Ep 12: 100%|██████████| 315/315 [39:53<00:00,  7.60s/it]
+Val: 100%|██████████| 315/315 [09:39<00:00,  1.84s/it]
+Epoch 12 — Train Loss: 0.2146 | Val Loss: 0.2217 | Val Dice: 0.3577
+Class Detection Counts (Train):
+Class 0: 320364453 pixels detected
+Class 1: 8071059 pixels detected
+Class 2: 1865928 pixels detected
+Train Ep 13: 100%|██████████| 315/315 [35:21<00:00,  6.74s/it]
+Val: 100%|██████████| 315/315 [07:08<00:00,  1.36s/it]
+Epoch 13 — Train Loss: 0.1976 | Val Loss: 0.1390 | Val Dice: 0.3672
+Class Detection Counts (Train):
+Class 0: 307607331 pixels detected
+Class 1: 21129590 pixels detected
+Class 2: 1564519 pixels detected
+Train Ep 14: 100%|██████████| 315/315 [37:49<00:00,  7.20s/it]
+Val: 100%|██████████| 315/315 [07:07<00:00,  1.36s/it]
+Epoch 14 — Train Loss: 0.1900 | Val Loss: 0.1419 | Val Dice: 0.3692
+Class Detection Counts (Train):
+Class 0: 313857883 pixels detected
+Class 1: 15863985 pixels detected
+Class 2: 579572 pixels detected
+Train Ep 15: 100%|██████████| 315/315 [35:46<00:00,  6.81s/it]
+Val: 100%|██████████| 315/315 [07:08<00:00,  1.36s/it]
+Epoch 15 — Train Loss: 0.1797 | Val Loss: 0.1332 | Val Dice: 0.3687
+Class Detection Counts (Train):
+Class 0: 309760019 pixels detected
+Class 1: 19387733 pixels detected
+Class 2: 1153688 pixels detected
+Train Ep 16: 100%|██████████| 315/315 [44:10<00:00,  8.42s/it]
+Val: 100%|██████████| 315/315 [07:10<00:00,  1.37s/it]
+Epoch 16 — Train Loss: 0.1874 | Val Loss: 0.1450 | Val Dice: 0.3692
+Class Detection Counts (Train):
+Class 0: 313505363 pixels detected
+Class 1: 16077594 pixels detected
+Class 2: 718483 pixels detected
+Train Ep 17: 100%|██████████| 315/315 [34:17<00:00,  6.53s/it]
+Val: 100%|██████████| 315/315 [07:08<00:00,  1.36s/it]
+Epoch 17 — Train Loss: 0.1748 | Val Loss: 0.2629 | Val Dice: 0.3389
+Class Detection Counts (Train):
+Class 0: 272451317 pixels detected
+Class 1: 57153437 pixels detected
+Class 2: 696686 pixels detected
+Train Ep 18: 100%|██████████| 315/315 [32:28<00:00,  6.19s/it]
+Val: 100%|██████████| 315/315 [07:09<00:00,  1.36s/it]
+Epoch 18 — Train Loss: 0.1681 | Val Loss: 0.1508 | Val Dice: 0.3687
+Class Detection Counts (Train):
+Class 0: 310756853 pixels detected
+Class 1: 18036907 pixels detected
+Class 2: 1507680 pixels detected
+Train Ep 19: 100%|██████████| 315/315 [36:53<00:00,  7.03s/it]
+Val: 100%|██████████| 315/315 [11:37<00:00,  2.22s/it]
+Epoch 19 — Train Loss: 0.1694 | Val Loss: 0.1177 | Val Dice: 0.3698
+Class Detection Counts (Train):
+Class 0: 305353355 pixels detected
+Class 1: 23392601 pixels detected
+Class 2: 1555484 pixels detected
+Train Ep 20: 100%|██████████| 315/315 [45:25<00:00,  8.65s/it]
+Val: 100%|██████████| 315/315 [07:07<00:00,  1.36s/it]
+Epoch 20 — Train Loss: 0.1692 | Val Loss: 0.1153 | Val Dice: 0.3743
+Class Detection Counts (Train):
+Class 0: 309935291 pixels detected
+Class 1: 18633655 pixels detected
+Class 2: 1732494 pixels detected
+Train Ep 21: 100%|██████████| 315/315 [34:04<00:00,  6.49s/it]
+Val: 100%|██████████| 315/315 [07:07<00:00,  1.36s/it]
+Epoch 21 — Train Loss: 0.1491 | Val Loss: 0.1037 | Val Dice: 0.3748
+Class Detection Counts (Train):
+Class 0: 305258284 pixels detected
+Class 1: 23791470 pixels detected
+Class 2: 1251686 pixels detected
+Train Ep 22: 100%|██████████| 315/315 [44:19<00:00,  8.44s/it]
+Val: 100%|██████████| 315/315 [07:08<00:00,  1.36s/it]
+Epoch 22 — Train Loss: 0.1411 | Val Loss: 0.1029 | Val Dice: 0.3758
+Class Detection Counts (Train):
+Class 0: 304879589 pixels detected
+Class 1: 24908780 pixels detected
+Class 2: 513071 pixels detected
+Train Ep 23: 100%|██████████| 315/315 [34:42<00:00,  6.61s/it]
+Val: 100%|██████████| 315/315 [07:19<00:00,  1.40s/it]
+Epoch 23 — Train Loss: 0.1443 | Val Loss: 0.1252 | Val Dice: 0.3738
+Class Detection Counts (Train):
+Class 0: 307814056 pixels detected
+Class 1: 22199172 pixels detected
+Class 2: 288212 pixels detected
+Train Ep 24: 100%|██████████| 315/315 [41:01<00:00,  7.81s/it]
+Val: 100%|██████████| 315/315 [07:19<00:00,  1.40s/it]
+Epoch 24 — Train Loss: 0.1495 | Val Loss: 0.0996 | Val Dice: 0.3800
+Class Detection Counts (Train):
+Class 0: 311003688 pixels detected
+Class 1: 18968254 pixels detected
+Class 2: 329498 pixels detected
+Train Ep 25: 100%|██████████| 315/315 [34:17<00:00,  6.53s/it]
+Val: 100%|██████████| 315/315 [07:21<00:00,  1.40s/it]
+Epoch 25 — Train Loss: 0.1287 | Val Loss: 0.1045 | Val Dice: 0.3781
+Class Detection Counts (Train):
+Class 0: 312288384 pixels detected
+Class 1: 17382103 pixels detected
+Class 2: 630953 pixels detected
+Train Ep 26: 100%|██████████| 315/315 [44:29<00:00,  8.47s/it]
+Val: 100%|██████████| 315/315 [07:22<00:00,  1.40s/it]
+Epoch 26 — Train Loss: 0.1361 | Val Loss: 0.0793 | Val Dice: 0.3794
+Class Detection Counts (Train):
+Class 0: 306633637 pixels detected
+Class 1: 23056171 pixels detected
+Class 2: 611632 pixels detected
+Train Ep 27: 100%|██████████| 315/315 [45:28<00:00,  8.66s/it]
+Val: 100%|██████████| 315/315 [08:00<00:00,  1.53s/it]
+Epoch 27 — Train Loss: 0.1367 | Val Loss: 0.1507 | Val Dice: 0.3705
+Class Detection Counts (Train):
+Class 0: 296989993 pixels detected
+Class 1: 26900689 pixels detected
+Class 2: 6410758 pixels detected
+Train Ep 28: 100%|██████████| 315/315 [37:48<00:00,  7.20s/it]
+Val: 100%|██████████| 315/315 [07:59<00:00,  1.52s/it]
+Epoch 28 — Train Loss: 0.1169 | Val Loss: 0.0973 | Val Dice: 0.3831
+Class Detection Counts (Train):
+Class 0: 311198832 pixels detected
+Class 1: 18000456 pixels detected
+Class 2: 1102152 pixels detected
+Train Ep 29: 100%|██████████| 315/315 [38:05<00:00,  7.26s/it]
+Val: 100%|██████████| 315/315 [07:49<00:00,  1.49s/it]
+Epoch 29 — Train Loss: 0.1096 | Val Loss: 0.0848 | Val Dice: 0.3829
+Class Detection Counts (Train):
+Class 0: 308620185 pixels detected
+Class 1: 20027863 pixels detected
+Class 2: 1653392 pixels detected
+Train Ep 30: 100%|██████████| 315/315 [41:54<00:00,  7.98s/it]
+Val: 100%|██████████| 315/315 [07:37<00:00,  1.45s/it]
+Epoch 30 — Train Loss: 0.1115 | Val Loss: 0.0728 | Val Dice: 0.3878
+Class Detection Counts (Train):
+Class 0: 310811837 pixels detected
+Class 1: 19049439 pixels detected
+Class 2: 440164 pixels detected
+Train Ep 31: 100%|██████████| 315/315 [34:10<00:00,  6.51s/it]
+Val: 100%|██████████| 315/315 [07:47<00:00,  1.48s/it]
+Epoch 31 — Train Loss: 0.1274 | Val Loss: 0.0914 | Val Dice: 0.3806
+Class Detection Counts (Train):
+Class 0: 309403767 pixels detected
+Class 1: 18924507 pixels detected
+Class 2: 1973166 pixels detected
+Train Ep 32: 100%|██████████| 315/315 [37:11<00:00,  7.08s/it]
+Val: 100%|██████████| 315/315 [07:22<00:00,  1.41s/it]
+Epoch 32 — Train Loss: 0.1192 | Val Loss: 0.0915 | Val Dice: 0.3809
+Class Detection Counts (Train):
+Class 0: 311872059 pixels detected
+Class 1: 17671342 pixels detected
+Class 2: 758039 pixels detected
+Train Ep 33: 100%|██████████| 315/315 [40:53<00:00,  7.79s/it]
+Val: 100%|██████████| 315/315 [07:09<00:00,  1.36s/it]
+Epoch 33 — Train Loss: 0.0947 | Val Loss: 0.0970 | Val Dice: 0.3848
+Class Detection Counts (Train):
+Class 0: 313857272 pixels detected
+Class 1: 15957959 pixels detected
+Class 2: 486209 pixels detected
+Train Ep 34: 100%|██████████| 315/315 [36:05<00:00,  6.88s/it]
+Val: 100%|██████████| 315/315 [07:23<00:00,  1.41s/it]
+Epoch 34 — Train Loss: 0.1046 | Val Loss: 0.0804 | Val Dice: 0.3881
+Class Detection Counts (Train):
+Class 0: 310546658 pixels detected
+Class 1: 19300815 pixels detected
+Class 2: 453967 pixels detected
+Train Ep 35: 100%|██████████| 315/315 [37:12<00:00,  7.09s/it]
+Val: 100%|██████████| 315/315 [07:38<00:00,  1.45s/it]
+Epoch 35 — Train Loss: 0.0825 | Val Loss: 0.0676 | Val Dice: 0.3927
+Class Detection Counts (Train):
+Class 0: 313401828 pixels detected
+Class 1: 16380892 pixels detected
+Class 2: 518720 pixels detected
+Train Ep 36: 100%|██████████| 315/315 [37:39<00:00,  7.17s/it]
+Val: 100%|██████████| 315/315 [07:51<00:00,  1.50s/it]
+Epoch 36 — Train Loss: 0.0715 | Val Loss: 0.0696 | Val Dice: 0.3932
+Class Detection Counts (Train):
+Class 0: 314070450 pixels detected
+Class 1: 15750468 pixels detected
+Class 2: 480522 pixels detected
+Train Ep 37: 100%|██████████| 315/315 [42:38<00:00,  8.12s/it]
+Val: 100%|██████████| 315/315 [08:21<00:00,  1.59s/it]
+Epoch 37 — Train Loss: 0.0666 | Val Loss: 0.0806 | Val Dice: 0.3926
+Class Detection Counts (Train):
+Class 0: 315693074 pixels detected
+Class 1: 14158582 pixels detected
+Class 2: 449784 pixels detected
+Train Ep 38: 100%|██████████| 315/315 [33:48<00:00,  6.44s/it]
+Val: 100%|██████████| 315/315 [07:45<00:00,  1.48s/it]
+Epoch 38 — Train Loss: 0.0684 | Val Loss: 0.0924 | Val Dice: 0.3924
+Class Detection Counts (Train):
+Class 0: 314438666 pixels detected
+Class 1: 14705697 pixels detected
+Class 2: 1157077 pixels detected
+Train Ep 39: 100%|██████████| 315/315 [38:49<00:00,  7.40s/it]
+Val: 100%|██████████| 315/315 [07:23<00:00,  1.41s/it]
+Epoch 39 — Train Loss: 0.0717 | Val Loss: 0.0637 | Val Dice: 0.3936
+Class Detection Counts (Train):
+Class 0: 313870083 pixels detected
+Class 1: 15983865 pixels detected
+Class 2: 447492 pixels detected
+
+Loading saved model from best_unet.pth
+Train Ep 0: 100%|██████████| 2520/2520 [58:48<00:00,  1.40s/it] 
+Val: 100%|██████████| 315/315 [06:54<00:00,  1.31s/it]
+Epoch 0 — Train Loss: 0.3907 | Val Loss: 0.2357 | Val Dice: 0.3437
+Class Detection Counts (Train):
+Class 0: 308968444 pixels detected
+Class 1: 20764808 pixels detected
+Class 2: 568188 pixels detected
+Train Ep 1: 100%|██████████| 2520/2520 [58:39<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:56<00:00,  1.32s/it]
+Epoch 1 — Train Loss: 0.3559 | Val Loss: 0.2402 | Val Dice: 0.3455
+Class Detection Counts (Train):
+Class 0: 309945553 pixels detected
+Class 1: 15784822 pixels detected
+Class 2: 4571065 pixels detected
+Train Ep 2: 100%|██████████| 2520/2520 [58:37<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:51<00:00,  1.31s/it]
+Epoch 2 — Train Loss: 0.3256 | Val Loss: 0.2029 | Val Dice: 0.3518
+Class Detection Counts (Train):
+Class 0: 304017042 pixels detected
+Class 1: 25057011 pixels detected
+Class 2: 1227387 pixels detected
+Train Ep 3: 100%|██████████| 2520/2520 [58:38<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:56<00:00,  1.32s/it]
+Epoch 3 — Train Loss: 0.3015 | Val Loss: 0.1784 | Val Dice: 0.3494
+Class Detection Counts (Train):
+Class 0: 297890652 pixels detected
+Class 1: 29166901 pixels detected
+Class 2: 3243887 pixels detected
+Train Ep 4: 100%|██████████| 2520/2520 [58:47<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:51<00:00,  1.31s/it]
+Epoch 4 — Train Loss: 0.2833 | Val Loss: 0.1924 | Val Dice: 0.3571
+Class Detection Counts (Train):
+Class 0: 312919909 pixels detected
+Class 1: 16527940 pixels detected
+Class 2: 853591 pixels detected
+Train Ep 5: 100%|██████████| 2520/2520 [58:44<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:56<00:00,  1.32s/it]
+Epoch 5 — Train Loss: 0.2639 | Val Loss: 0.1603 | Val Dice: 0.3529
+Class Detection Counts (Train):
+Class 0: 299487891 pixels detected
+Class 1: 29101043 pixels detected
+Class 2: 1712506 pixels detected
+Train Ep 6: 100%|██████████| 2520/2520 [58:27<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:51<00:00,  1.31s/it]
+Epoch 6 — Train Loss: 0.2447 | Val Loss: 0.1877 | Val Dice: 0.3542
+Class Detection Counts (Train):
+Class 0: 312216835 pixels detected
+Class 1: 15484619 pixels detected
+Class 2: 2599986 pixels detected
+Train Ep 7: 100%|██████████| 2520/2520 [59:52<00:00,  1.43s/it]
+Val: 100%|██████████| 315/315 [06:49<00:00,  1.30s/it]
+Epoch 7 — Train Loss: 0.2317 | Val Loss: 0.1493 | Val Dice: 0.3658
+Class Detection Counts (Train):
+Class 0: 311292553 pixels detected
+Class 1: 18475040 pixels detected
+Class 2: 533847 pixels detected
+Train Ep 8: 100%|██████████| 2520/2520 [58:26<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:49<00:00,  1.30s/it]
+Epoch 8 — Train Loss: 0.2174 | Val Loss: 0.1855 | Val Dice: 0.3634
+Class Detection Counts (Train):
+Class 0: 311981334 pixels detected
+Class 1: 17849933 pixels detected
+Class 2: 470173 pixels detected
+Train Ep 9: 100%|██████████| 2520/2520 [58:35<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:48<00:00,  1.30s/it]
+Epoch 9 — Train Loss: 0.2038 | Val Loss: 0.1387 | Val Dice: 0.3578
+Class Detection Counts (Train):
+Class 0: 297485957 pixels detected
+Class 1: 31620466 pixels detected
+Class 2: 1195017 pixels detected
+Train Ep 10: 100%|██████████| 2520/2520 [58:29<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:49<00:00,  1.30s/it]
+Epoch 10 — Train Loss: 0.1903 | Val Loss: 0.1383 | Val Dice: 0.3699
+Class Detection Counts (Train):
+Class 0: 310865623 pixels detected
+Class 1: 18124399 pixels detected
+Class 2: 1311418 pixels detected
+Train Ep 11: 100%|██████████| 2520/2520 [58:24<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:48<00:00,  1.30s/it]
+Epoch 11 — Train Loss: 0.1857 | Val Loss: 0.1407 | Val Dice: 0.3635
+Class Detection Counts (Train):
+Class 0: 300398016 pixels detected
+Class 1: 28939408 pixels detected
+Class 2: 964016 pixels detected
+Train Ep 12: 100%|██████████| 2520/2520 [58:26<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:48<00:00,  1.30s/it]
+Epoch 12 — Train Loss: 0.1678 | Val Loss: 0.1521 | Val Dice: 0.3679
+Class Detection Counts (Train):
+Class 0: 299900334 pixels detected
+Class 1: 30102807 pixels detected
+Class 2: 298299 pixels detected
+Train Ep 13: 100%|██████████| 2520/2520 [58:20<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:50<00:00,  1.30s/it]
+Epoch 13 — Train Loss: 0.1553 | Val Loss: 0.1074 | Val Dice: 0.3730
+Class Detection Counts (Train):
+Class 0: 304466395 pixels detected
+Class 1: 25300246 pixels detected
+Class 2: 534799 pixels detected
+Train Ep 14: 100%|██████████| 2520/2520 [58:29<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:49<00:00,  1.30s/it]
+Epoch 14 — Train Loss: 0.1501 | Val Loss: 0.1154 | Val Dice: 0.3687
+Class Detection Counts (Train):
+Class 0: 305477635 pixels detected
+Class 1: 24127560 pixels detected
+Class 2: 696245 pixels detected
+Train Ep 15: 100%|██████████| 2520/2520 [58:28<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:50<00:00,  1.30s/it]
+Epoch 15 — Train Loss: 0.1423 | Val Loss: 0.1377 | Val Dice: 0.3666
+Class Detection Counts (Train):
+Class 0: 305585432 pixels detected
+Class 1: 24380915 pixels detected
+Class 2: 335093 pixels detected
+Train Ep 16: 100%|██████████| 2520/2520 [58:55<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:59<00:00,  1.33s/it]
+Epoch 16 — Train Loss: 0.1234 | Val Loss: 0.1170 | Val Dice: 0.3835
+Class Detection Counts (Train):
+Class 0: 313979576 pixels detected
+Class 1: 15756367 pixels detected
+Class 2: 565497 pixels detected
+Train Ep 17: 100%|██████████| 2520/2520 [59:14<00:00,  1.41s/it]
+Val: 100%|██████████| 315/315 [06:49<00:00,  1.30s/it]
+Epoch 17 — Train Loss: 0.1312 | Val Loss: 0.0963 | Val Dice: 0.3771
+Class Detection Counts (Train):
+Class 0: 305172156 pixels detected
+Class 1: 24598560 pixels detected
+Class 2: 530724 pixels detected
+Train Ep 18: 100%|██████████| 2520/2520 [1:00:04<00:00,  1.43s/it]
+Val: 100%|██████████| 315/315 [07:00<00:00,  1.34s/it]
+Epoch 18 — Train Loss: 0.1126 | Val Loss: 0.1083 | Val Dice: 0.3782
+Class Detection Counts (Train):
+Class 0: 311602636 pixels detected
+Class 1: 18077091 pixels detected
+Class 2: 621713 pixels detected
+Train Ep 19: 100%|██████████| 2520/2520 [1:00:06<00:00,  1.43s/it]
+Val: 100%|██████████| 315/315 [07:01<00:00,  1.34s/it]
+Epoch 19 — Train Loss: 0.1032 | Val Loss: 0.1095 | Val Dice: 0.3795
+Class Detection Counts (Train):
+Class 0: 311517260 pixels detected
+Class 1: 16008620 pixels detected
+Class 2: 2775560 pixels detected
+Train Ep 20: 100%|██████████| 2520/2520 [59:55<00:00,  1.43s/it] 
+Val: 100%|██████████| 315/315 [06:53<00:00,  1.31s/it]
+Epoch 20 — Train Loss: 0.1030 | Val Loss: 0.1377 | Val Dice: 0.3765
+Class Detection Counts (Train):
+Class 0: 302170741 pixels detected
+Class 1: 20496435 pixels detected
+Class 2: 7634264 pixels detected
+Train Ep 21: 100%|██████████| 2520/2520 [58:36<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:48<00:00,  1.30s/it]
+Epoch 21 — Train Loss: 0.0937 | Val Loss: 0.1097 | Val Dice: 0.3880
+Class Detection Counts (Train):
+Class 0: 316443133 pixels detected
+Class 1: 13394043 pixels detected
+Class 2: 464264 pixels detected
+Train Ep 22: 100%|██████████| 2520/2520 [58:35<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:50<00:00,  1.30s/it]
+Epoch 22 — Train Loss: 0.0644 | Val Loss: 0.0636 | Val Dice: 0.3944
+Class Detection Counts (Train):
+Class 0: 313795544 pixels detected
+Class 1: 16046603 pixels detected
+Class 2: 459293 pixels detected
+Train Ep 23: 100%|██████████| 2520/2520 [58:40<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [07:02<00:00,  1.34s/it]
+Epoch 23 — Train Loss: 0.0542 | Val Loss: 0.0702 | Val Dice: 0.3970
+Class Detection Counts (Train):
+Class 0: 315650377 pixels detected
+Class 1: 14159312 pixels detected
+Class 2: 491751 pixels detected
+Train Ep 24: 100%|██████████| 2520/2520 [58:50<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:51<00:00,  1.31s/it]
+Epoch 24 — Train Loss: 0.0514 | Val Loss: 0.0410 | Val Dice: 0.3966
+Class Detection Counts (Train):
+Class 0: 310375273 pixels detected
+Class 1: 19448316 pixels detected
+Class 2: 477851 pixels detected
+Train Ep 25: 100%|██████████| 2520/2520 [58:57<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:53<00:00,  1.31s/it]
+Epoch 25 — Train Loss: 0.0479 | Val Loss: 0.0620 | Val Dice: 0.4008
+Class Detection Counts (Train):
+Class 0: 315593035 pixels detected
+Class 1: 14291128 pixels detected
+Class 2: 417277 pixels detected
+Train Ep 26: 100%|██████████| 2520/2520 [58:58<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:53<00:00,  1.31s/it]
+Epoch 26 — Train Loss: 0.0406 | Val Loss: 0.0705 | Val Dice: 0.4020
+Class Detection Counts (Train):
+Class 0: 316471392 pixels detected
+Class 1: 13421599 pixels detected
+Class 2: 408449 pixels detected
+Train Ep 27: 100%|██████████| 2520/2520 [59:02<00:00,  1.41s/it]
+Val: 100%|██████████| 315/315 [06:53<00:00,  1.31s/it]
+Epoch 27 — Train Loss: 0.0370 | Val Loss: 0.0357 | Val Dice: 0.4095
+Class Detection Counts (Train):
+Class 0: 314405703 pixels detected
+Class 1: 15496514 pixels detected
+Class 2: 399223 pixels detected
+Train Ep 28: 100%|██████████| 2520/2520 [58:45<00:00,  1.40s/it] 
+Val: 100%|██████████| 315/315 [06:53<00:00,  1.31s/it]
+Epoch 28 — Train Loss: 0.0383 | Val Loss: 0.0579 | Val Dice: 0.4066
+Class Detection Counts (Train):
+Class 0: 316188358 pixels detected
+Class 1: 13688723 pixels detected
+Class 2: 424359 pixels detected
+Train Ep 29: 100%|██████████| 2520/2520 [58:49<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:50<00:00,  1.30s/it]
+Epoch 29 — Train Loss: 0.0311 | Val Loss: 0.0559 | Val Dice: 0.4055
+Class Detection Counts (Train):
+Class 0: 315661252 pixels detected
+Class 1: 14246151 pixels detected
+Class 2: 394037 pixels detected
+Train Ep 30: 100%|██████████| 2520/2520 [59:01<00:00,  1.41s/it]
+Val: 100%|██████████| 315/315 [06:50<00:00,  1.30s/it]
+Epoch 30 — Train Loss: 0.0371 | Val Loss: 0.0446 | Val Dice: 0.4080
+Class Detection Counts (Train):
+Class 0: 314992138 pixels detected
+Class 1: 14902048 pixels detected
+Class 2: 407254 pixels detected
+Train Ep 31: 100%|██████████| 2520/2520 [58:34<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:52<00:00,  1.31s/it]
+Epoch 31 — Train Loss: 0.0307 | Val Loss: 0.0576 | Val Dice: 0.3900
+Class Detection Counts (Train):
+Class 0: 308311350 pixels detected
+Class 1: 21566649 pixels detected
+Class 2: 423441 pixels detected
+Train Ep 32: 100%|██████████| 2520/2520 [58:42<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:55<00:00,  1.32s/it]
+Epoch 32 — Train Loss: 0.0260 | Val Loss: 0.0275 | Val Dice: 0.4136
+Class Detection Counts (Train):
+Class 0: 314887673 pixels detected
+Class 1: 15024971 pixels detected
+Class 2: 388796 pixels detected
+Train Ep 33: 100%|██████████| 2520/2520 [58:33<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:50<00:00,  1.30s/it]
+Epoch 33 — Train Loss: 0.0212 | Val Loss: 0.0255 | Val Dice: 0.4145
+Class Detection Counts (Train):
+Class 0: 314712132 pixels detected
+Class 1: 15215438 pixels detected
+Class 2: 373870 pixels detected
+Train Ep 34: 100%|██████████| 2520/2520 [58:55<00:00,  1.40s/it]
+Val: 100%|██████████| 315/315 [06:52<00:00,  1.31s/it]
+Epoch 34 — Train Loss: 0.0201 | Val Loss: 0.0590 | Val Dice: 0.4111
+Class Detection Counts (Train):
+Class 0: 317248798 pixels detected
+Class 1: 12679150 pixels detected
+Class 2: 373492 pixels detected
+Train Ep 35: 100%|██████████| 2520/2520 [58:25<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:50<00:00,  1.30s/it]
+Epoch 35 — Train Loss: 0.0190 | Val Loss: 0.0375 | Val Dice: 0.4143
+Class Detection Counts (Train):
+Class 0: 315911434 pixels detected
+Class 1: 14013612 pixels detected
+Class 2: 376394 pixels detected
+Train Ep 36: 100%|██████████| 2520/2520 [58:23<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:49<00:00,  1.30s/it]
+Epoch 36 — Train Loss: 0.0174 | Val Loss: 0.0505 | Val Dice: 0.4135
+Class Detection Counts (Train):
+Class 0: 316898707 pixels detected
+Class 1: 13017692 pixels detected
+Class 2: 385041 pixels detected
+Train Ep 37: 100%|██████████| 2520/2520 [58:34<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:54<00:00,  1.32s/it]
+Epoch 37 — Train Loss: 0.0164 | Val Loss: 0.0325 | Val Dice: 0.4160
+Class Detection Counts (Train):
+Class 0: 315849406 pixels detected
+Class 1: 14083501 pixels detected
+Class 2: 368533 pixels detected
+Train Ep 38: 100%|██████████| 2520/2520 [58:34<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:48<00:00,  1.30s/it]
+Epoch 38 — Train Loss: 0.0146 | Val Loss: 0.0258 | Val Dice: 0.4178
+Class Detection Counts (Train):
+Class 0: 315588568 pixels detected
+Class 1: 14353770 pixels detected
+Class 2: 359102 pixels detected
+Train Ep 39: 100%|██████████| 2520/2520 [58:19<00:00,  1.39s/it]
+Val: 100%|██████████| 315/315 [06:53<00:00,  1.31s/it]
+Epoch 39 — Train Loss: 0.0141 | Val Loss: 0.0396 | Val Dice: 0.4163
+Class Detection Counts (Train):
+Class 0: 316624248 pixels detected
+Class 1: 13308942 pixels detected
+Class 2: 368250 pixels detected
