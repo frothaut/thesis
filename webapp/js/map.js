@@ -5,6 +5,7 @@ import { OSM, XYZ } from 'ol/source';
 import './area';
 import { AreaLayer, drawAreaLayer } from './area';
 import { initDownloadPopup } from './overlay';
+import { pointLayer } from './points';
 
 // 1. Create the WMS (imagery) layer as a TileLayer
 export const wmsLayer = new TileLayer({
@@ -26,12 +27,26 @@ export const map = new Map({
     wmsLayer,
     drawAreaLayer,
     AreaLayer,
+    pointLayer,
   ],
   view: new View({
     center: fromLonLat([1.074901, 44.501916]),
     zoom: 17,
   }),
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
 initDownloadPopup(map)
 // 3. Wire up your “toggleSidebar” button
 const btn = document.getElementById('toggleSidebar');
