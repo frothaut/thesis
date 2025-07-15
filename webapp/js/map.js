@@ -6,6 +6,7 @@ import './area';
 import { AreaLayer, drawAreaLayer } from './area';
 import { initDownloadPopup } from './overlay';
 import { pointLayer } from './points';
+import { photoArLayer } from './photoarea';
 
 // 1. Create the WMS (imagery) layer as a TileLayer
 export const wmsLayer = new TileLayer({
@@ -28,6 +29,7 @@ export const map = new Map({
     drawAreaLayer,
     AreaLayer,
     pointLayer,
+    photoArLayer,
   ],
   view: new View({
     center: fromLonLat([1.074901, 44.501916]),
