@@ -1,0 +1,367 @@
+# %%
+import os
+import time
+import math
+import h5py
+import torch
+from tqdm import tqdm
+import numpy as np
+import matplotlib.pyplot as plt
+
+from PIL import Image
+from torch.utils.data import Dataset, DataLoader
+import torch.nn as nn
+import torch.nn.functional as F
+from torch.utils.data import random_split
+
+import albumentations as A
+from albumentations.pytorch import ToTensorV2
+
+Image.MAX_IMAGE_PIXELS = None
+torch.backends.cudnn.benchmark = True
+
+# =========================
+#   MODELL (unverändert)
+# =========================
+class DoubleConv(nn.Module):
+    def __init__(self, in_ch, out_ch, dropout=0.0):
+        super().__init__()
+        layers = [
+            nn.Conv2d(in_ch, out_ch, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(out_ch, out_ch, kernel_size=3, padding=1),
+            nn.BatchNorm2d(out_ch),
+            nn.ReLU(inplace=True)
+        ]
+        if dropout > 0:
+            layers.insert(3, nn.Dropout2d(dropout))  # nach der ersten ReLU
+        self.conv = nn.Sequential(*layers)
+
+    def forward(self, x):
+        return self.conv(x)
+
+class UNet(nn.Module):
+    def __init__(self, n_classes, base_c=64, dropout=0.3):
+        super().__init__()
+        self.down1 = DoubleConv(3, base_c)
+        self.pool1 = nn.MaxPool2d(2)
+        self.down2 = DoubleConv(base_c, base_c*2)
+        self.pool2 = nn.MaxPool2d(2)
+        self.down3 = DoubleConv(base_c*2, base_c*4, dropout=dropout)
+        self.pool3 = nn.MaxPool2d(2)
+        self.down4 = DoubleConv(base_c*4, base_c*8, dropout=dropout)
+        self.pool4 = nn.MaxPool2d(2)
+        self.bottleneck = DoubleConv(base_c*8, base_c*16, dropout=dropout)
+        self.up4 = nn.ConvTranspose2d(base_c*16, base_c*8, kernel_size=2, stride=2)
+        self.dec4 = DoubleConv(base_c*16, base_c*8)
+        self.up3 = nn.ConvTranspose2d(base_c*8, base_c*4, kernel_size=2, stride=2)
+        self.dec3 = DoubleConv(base_c*8, base_c*4)
+        self.up2 = nn.ConvTranspose2d(base_c*4, base_c*2, kernel_size=2, stride=2)
+        self.dec2 = DoubleConv(base_c*4, base_c*2)
+        self.up1 = nn.ConvTranspose2d(base_c*2, base_c, kernel_size=2, stride=2)
+        self.dec1 = DoubleConv(base_c*2, base_c)
+        self.outc = nn.Conv2d(base_c, n_classes, kernel_size=1)
+
+    def forward(self, x):
+        d1 = self.down1(x); p1 = self.pool1(d1)
+        d2 = self.down2(p1); p2 = self.pool2(d2)
+        d3 = self.down3(p2); p3 = self.pool3(d3)
+        d4 = self.down4(p3); p4 = self.pool4(d4)
+        bn = self.bottleneck(p4)
+        u4 = self.up4(bn); c4 = self.dec4(torch.cat([u4, d4], dim=1))
+        u3 = self.up3(c4); c3 = self.dec3(torch.cat([u3, d3], dim=1))
+        u2 = self.up2(c3); c2 = self.dec2(torch.cat([u2, d2], dim=1))
+        u1 = self.up1(c2); c1 = self.dec1(torch.cat([u1, d1], dim=1))
+        return self.outc(c1)
+
+# =========================
+#   H5 ERZEUGEN
+# =========================
+def _count_patches(img_path, patch, step, resize_half=True):
+    w, h = Image.open(img_path).size
+    if resize_half:
+        w //= 2; h //= 2
+    nx = 1 + max(0, (w - patch) // step)
+    ny = 1 + max(0, (h - patch) // step)
+    return nx * ny
+
+def build_h5_dataset(
+    img_dir, mask_dir, out_path="dataset.h5",
+    class_values=(0,80,150,255),
+    patch_size=512, overlap=0.5, resize_half=True,
+    val_split=0.2, seed=42, compression="lzf"
+):
+    assert os.path.isdir(img_dir) and os.path.isdir(mask_dir), "img_dir/mask_dir existieren nicht"
+    jpgs = sorted([f for f in os.listdir(img_dir) if f.lower().endswith(".jpg")])
+    assert len(jpgs)>0, "Keine JPGs in img_dir gefunden"
+
+    # Zähle Patches
+    step = int(patch_size * (1 - overlap))
+    paths_img = [os.path.join(img_dir, f) for f in jpgs]
+    N = 0
+    print("Zähle Patches...")
+    for p in tqdm(paths_img):
+        N += _count_patches(p, patch_size, step, resize_half)
+
+    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
+    print(f"Schreibe H5: {out_path} mit {N} Patches...")
+    with h5py.File(out_path, "w") as f:
+        img_ds  = f.create_dataset("images", (N, patch_size, patch_size, 3), dtype="uint8",
+                                   chunks=(1, patch_size, patch_size, 3), compression=compression, shuffle=True)
+        mask_ds = f.create_dataset("masks",  (N, patch_size, patch_size),   dtype="uint8",
+                                   chunks=(1, patch_size, patch_size),     compression=compression, shuffle=True)
+        names   = f.create_dataset("orig_filename", (N,), dtype=h5py.string_dtype())
+        coords  = f.create_dataset("coords", (N,4), dtype="int32")
+        split   = f.create_dataset("split", (N,), dtype="uint8")  # 0=train, 1=val
+        f.create_dataset("class_values", data=np.array(class_values, dtype="int32"))
+        f.attrs["patch_size"] = patch_size
+        f.attrs["overlap"]    = overlap
+        f.attrs["resize_half"]= int(resize_half)
+
+        i = 0
+        rng = np.random.default_rng(seed)
+        for fname in tqdm(jpgs, desc="Cropping"):
+            img_path = os.path.join(img_dir, fname)
+            base = os.path.splitext(fname)[0]
+            mask_path = os.path.join(mask_dir, base + ".png")
+
+            if not os.path.exists(mask_path):
+                print(f"Warnung: Maske fehlt für {fname}, überspringe.")
+                continue
+
+            img = Image.open(img_path).convert("RGB")
+            msk = Image.open(mask_path).convert("L")
+
+            if resize_half:
+                w, h = img.size
+                img = img.resize((w//2, h//2), Image.Resampling.LANCZOS)
+                msk = msk.resize((w//2, h//2), Image.Resampling.LANCZOS)
+
+            w, h = img.size
+            for y in range(0, h - patch_size + 1, step):
+                for x in range(0, w - patch_size + 1, step):
+                    ip = np.array(img.crop((x, y, x+patch_size, y+patch_size)), dtype=np.uint8)
+                    mp = np.array(msk.crop((x, y, x+patch_size, y+patch_size)), dtype=np.uint8)
+                    img_ds[i]  = ip
+                    mask_ds[i] = mp
+                    coords[i]  = (x, y, patch_size, patch_size)
+                    names[i]   = fname
+                    i += 1
+
+        # Split setzen
+        idx = np.arange(N)
+        rng.shuffle(idx)
+        n_val = int(N * val_split)
+        val_idx = set(idx[:n_val])
+        for j in range(N):
+            split[j] = 1 if j in val_idx else 0
+
+    print("Fertig.")
+
+# =========================
+#   PYTORCH DATASET (H5)
+# =========================
+class H5SegDataset(Dataset):
+    def __init__(self, h5_path, split=0, class_values=(0,80,150,255)):
+        super().__init__()
+        self.h5 = h5py.File(h5_path, "r", swmr=True, libver="latest")
+        self.images = self.h5["images"]
+        self.masks  = self.h5["masks"]
+        self.splits = self.h5["split"][...]
+        self.indices = np.where(self.splits == split)[0].astype(np.int64)
+        self.class_values = np.array(class_values, dtype=np.uint8)
+
+        # Look-up-table (0..255 -> Klassenindex), -1 für „kein Match“
+        self.lut = np.full(256, -1, dtype=np.int16)
+        for cls_id, v in enumerate(self.class_values):
+            self.lut[int(v)] = cls_id
+
+        self.tf = A.Compose([
+            A.HorizontalFlip(p=0.5),
+            A.VerticalFlip(p=0.5),
+            A.RandomRotate90(p=0.5),
+            A.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.0, hue=0.0, p=0.3),
+            A.Normalize(mean=(0.485,0.456,0.406), std=(0.229,0.224,0.225)),
+            ToTensorV2(),
+        ])
+
+    def __len__(self):
+        return len(self.indices)
+
+    def __getitem__(self, idx):
+        i = self.indices[idx]
+        img = self.images[i]  # uint8 HWC
+        msk = self.masks[i]   # uint8 HW (enthält 0/80/150/255)
+
+        aug = self.tf(image=img, mask=msk)
+        x   = aug["image"]    # FloatTensor CHW
+        m   = aug["mask"].numpy().astype(np.uint8)  # HW
+
+        # zu Klassenindizes 0..C-1 mappen
+        y_np = self.lut[m]
+        if (y_np < 0).any():
+            # Falls Masken Pixelwerte außerhalb class_values haben
+            # setze sie auf eine gültige Klasse (hier 0) oder wirf Fehler:
+            y_np = np.where(y_np < 0, 0, y_np)
+
+        y = torch.from_numpy(y_np.astype(np.int64))
+        return x, y
+
+# =========================
+#   KLASSEGEWICHTE
+# =========================
+def compute_class_weights_from_h5(h5_path, split=0, n_classes=4, class_values=(0,80,150,255)):
+    with h5py.File(h5_path, "r") as f:
+        masks  = f["masks"]
+        splits = f["split"][...]
+        indices = np.where(splits == split)[0]
+        # LUT wie oben
+        lut = np.full(256, -1, dtype=np.int16)
+        for cls_id, v in enumerate(class_values):
+            lut[int(v)] = cls_id
+
+        counts = np.zeros(n_classes, dtype=np.int64)
+        for i in tqdm(indices, desc="Class count (train)"):
+            m = masks[i]
+            mapped = lut[m]
+            mapped = np.where(mapped < 0, 0, mapped)  # robustness
+            bc = np.bincount(mapped.ravel(), minlength=n_classes)
+            counts += bc
+
+    total = counts.sum()
+    # inverse frequency
+    weights = np.array([ (total/c) if c>0 else 1.0 for c in counts ], dtype=np.float32)
+    # optional: normalisieren
+    weights = weights / weights.mean()
+    return torch.tensor(weights, dtype=torch.float32)
+
+# =========================
+#   TRAINING
+# =========================
+def dice_coef(pred, target, eps=1e-6):
+    intersection = (pred * target).sum(dim=(2,3))
+    union = pred.sum(dim=(2,3)) + target.sum(dim=(2,3))
+    return ((2 * intersection + eps) / (union + eps)).mean()
+
+def weighted_cross_entropy_loss(logits, masks, class_weights):
+    return F.cross_entropy(logits, masks, weight=class_weights)
+
+# =========================
+#   MAIN
+# =========================
+if __name__ == "__main__":
+    # --- Parameter ---
+    img_dir      = "images/imgs"
+    mask_dir     = "images/masks"
+    h5_path      = "dataset.h5"
+    n_classes    = 4
+    class_values = (0, 80, 150, 255)
+
+    patch_size   = 512
+    overlap      = 0.5
+    resize_half  = True
+    val_split    = 0.2
+    seed         = 42
+
+    lr       = 1e-4
+    epochs   = 60
+    bs       = 8
+    nw       = 4  # num_workers
+    device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    amp      = torch.cuda.is_available()
+
+    # --- H5 erzeugen (einmalig) ---
+    if not os.path.exists(h5_path):
+        build_h5_dataset(
+            img_dir, mask_dir, out_path=h5_path,
+            class_values=class_values,
+            patch_size=patch_size, overlap=overlap, resize_half=resize_half,
+            val_split=val_split, seed=seed, compression="lzf"
+        )
+
+    # --- Dataset / Loader ---
+    train_ds = H5SegDataset(h5_path, split=0, class_values=class_values)
+    val_ds   = H5SegDataset(h5_path, split=1, class_values=class_values)
+
+    train_loader = DataLoader(
+        train_ds, batch_size=bs, shuffle=True, num_workers=nw,
+        pin_memory=True, persistent_workers=(nw>0), prefetch_factor=2
+    )
+    val_loader = DataLoader(
+        val_ds, batch_size=bs, shuffle=False, num_workers=nw,
+        pin_memory=True, persistent_workers=(nw>0)
+    )
+
+    # --- Modell/Optim/Scheduler ---
+    model = UNet(n_classes).to(device)
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, patience=3, factor=0.5)
+    checkpoint = "best_unet.pth"
+    best_iou = 0.0
+
+    # --- Class Weights (aus H5, nur Train-Split) ---
+    class_weights = compute_class_weights_from_h5(h5_path, split=0, n_classes=n_classes, class_values=class_values).to(device)
+    print("Class weights:", class_weights.tolist())
+
+    # --- Optional: vorhandenes Modell laden ---
+    if os.path.exists(checkpoint):
+        print(f"Loading saved model from {checkpoint}")
+        model.load_state_dict(torch.load(checkpoint, map_location=device))
+        model.eval()
+
+    # --- Training ---
+    scaler = torch.cuda.amp.GradScaler(enabled=amp)
+    losses, val_losses = [], []
+
+    for epoch in range(epochs):
+        model.train()
+        train_loss = 0.0
+
+        for imgs, masks in tqdm(train_loader, desc=f"Train Ep {epoch}"):
+            imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
+
+            optimizer.zero_grad(set_to_none=True)
+            with torch.cuda.amp.autocast(enabled=amp):
+                logits = model(imgs)
+                loss = weighted_cross_entropy_loss(logits, masks, class_weights)
+
+            scaler.scale(loss).backward()
+            scaler.step(optimizer)
+            scaler.update()
+
+            train_loss += loss.item()
+
+        train_loss /= max(1, len(train_loader))
+        losses.append(train_loss)
+
+        # ------ Validation ------
+        model.eval()
+        val_loss, val_dice = 0.0, 0.0
+        with torch.no_grad(), torch.cuda.amp.autocast(enabled=amp):
+            for imgs, masks in tqdm(val_loader, desc="Val"):
+                imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
+                logits = model(imgs)
+                preds = F.softmax(logits, dim=1)
+
+                val_loss += F.cross_entropy(logits, masks, weight=class_weights).item()
+                masks_one_hot = F.one_hot(masks, num_classes=n_classes).permute(0, 3, 1, 2).float()
+                val_dice += dice_coef(preds, masks_one_hot).item()
+
+        val_loss /= max(1, len(val_loader))
+        val_dice /= max(1, len(val_loader))
+        val_losses.append(val_loss)
+        scheduler.step(val_loss)
+
+        print(f"Epoch {epoch} — Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}")
+
+        if val_dice > best_iou:
+            best_iou = val_dice
+            torch.save(model.state_dict(), checkpoint)
+
+    # --- Plot ---
+    plt.figure()
+    plt.plot(range(len(losses)), losses, label='Train Loss')
+    plt.plot(range(len(val_losses)), val_losses, label='Validation Loss')
+    plt.xlabel('Epoch'); plt.ylabel('Loss'); plt.title('Training and Validation Loss'); plt.legend()
+    plt.show()
