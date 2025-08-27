@@ -16,3 +16,4 @@ wandb/
 *.gif
 *.dng
 .DS_Store
+.h5

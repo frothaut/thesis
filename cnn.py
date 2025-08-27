@@ -7,6 +7,7 @@ import torch
 from tqdm import tqdm
 import numpy as np
 import matplotlib.pyplot as plt
+import re
 
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
@@ -78,86 +79,78 @@ class UNet(nn.Module):
 # =========================
 #   H5 ERZEUGEN
 # =========================
-def _count_patches(img_path, patch, step, resize_half=True):
-    w, h = Image.open(img_path).size
-    if resize_half:
-        w //= 2; h //= 2
-    nx = 1 + max(0, (w - patch) // step)
-    ny = 1 + max(0, (h - patch) // step)
-    return nx * ny
 
 def build_h5_dataset(
     img_dir, mask_dir, out_path="dataset.h5",
     class_values=(0,80,150,255),
-    patch_size=512, overlap=0.5, resize_half=True,
-    val_split=0.2, seed=42, compression="lzf"
-):
-    assert os.path.isdir(img_dir) and os.path.isdir(mask_dir), "img_dir/mask_dir existieren nicht"
-    jpgs = sorted([f for f in os.listdir(img_dir) if f.lower().endswith(".jpg")])
-    assert len(jpgs)>0, "Keine JPGs in img_dir gefunden"
-
-    # Zähle Patches
+    patch_size=512, overlap=0.5, resize_half=False,
+    val_split=0.2, seed=42, compression="lzf"):
+    print("Starting to Build H5 Dataset")
     step = int(patch_size * (1 - overlap))
-    paths_img = [os.path.join(img_dir, f) for f in jpgs]
-    N = 0
-    print("Zähle Patches...")
-    for p in tqdm(paths_img):
-        N += _count_patches(p, patch_size, step, resize_half)
 
-    os.makedirs(os.path.dirname(out_path) or ".", exist_ok=True)
-    print(f"Schreibe H5: {out_path} mit {N} Patches...")
+    # --- Alle Bilder und Masken indexieren ---
+    img_files = {re.search(r"(\d+)", f).group(1): os.path.join(img_dir, f)
+                 for f in os.listdir(img_dir) if f.lower().endswith(".jpg")}
+    mask_files = {re.search(r"(\d+)", f).group(1): os.path.join(mask_dir, f)
+                  for f in os.listdir(mask_dir) if f.lower().endswith(".png")}
+
+    # --- Match über Nummer ---
+    common_ids = sorted(set(img_files.keys()) & set(mask_files.keys()))
+    assert len(common_ids)>0, "Keine passenden Paare gefunden!"
+
+    # --- Patches zählen ---
+    def count_patches(img_path):
+        w,h = Image.open(img_path).size
+        if resize_half: w//=2; h//=2
+        nx = 1 + max(0, (w - patch_size) // step)
+        ny = 1 + max(0, (h - patch_size) // step)
+        return nx*ny
+
+    N = sum(count_patches(img_files[i]) for i in common_ids)
+    print(f"Insgesamt {N} Patches aus {len(common_ids)} Bild/Masken-Paaren.")
+
+    # --- H5 anlegen ---
     with h5py.File(out_path, "w") as f:
         img_ds  = f.create_dataset("images", (N, patch_size, patch_size, 3), dtype="uint8",
                                    chunks=(1, patch_size, patch_size, 3), compression=compression, shuffle=True)
-        mask_ds = f.create_dataset("masks",  (N, patch_size, patch_size),   dtype="uint8",
-                                   chunks=(1, patch_size, patch_size),     compression=compression, shuffle=True)
-        names   = f.create_dataset("orig_filename", (N,), dtype=h5py.string_dtype())
-        coords  = f.create_dataset("coords", (N,4), dtype="int32")
-        split   = f.create_dataset("split", (N,), dtype="uint8")  # 0=train, 1=val
+        mask_ds = f.create_dataset("masks",  (N, patch_size, patch_size), dtype="uint8",
+                                   chunks=(1, patch_size, patch_size), compression=compression, shuffle=True)
+        names   = f.create_dataset("orig_id", (N,), dtype=h5py.string_dtype())
+        split   = f.create_dataset("split", (N,), dtype="uint8")
         f.create_dataset("class_values", data=np.array(class_values, dtype="int32"))
-        f.attrs["patch_size"] = patch_size
-        f.attrs["overlap"]    = overlap
-        f.attrs["resize_half"]= int(resize_half)
 
         i = 0
         rng = np.random.default_rng(seed)
-        for fname in tqdm(jpgs, desc="Cropping"):
-            img_path = os.path.join(img_dir, fname)
-            base = os.path.splitext(fname)[0]
-            mask_path = os.path.join(mask_dir, base + ".png")
-
-            if not os.path.exists(mask_path):
-                print(f"Warnung: Maske fehlt für {fname}, überspringe.")
-                continue
+        for cid in common_ids:
+            img_path = img_files[cid]
+            msk_path = mask_files[cid]
 
             img = Image.open(img_path).convert("RGB")
-            msk = Image.open(mask_path).convert("L")
+            msk = Image.open(msk_path).convert("L")
 
             if resize_half:
-                w, h = img.size
+                w,h = img.size
                 img = img.resize((w//2, h//2), Image.Resampling.LANCZOS)
                 msk = msk.resize((w//2, h//2), Image.Resampling.LANCZOS)
 
-            w, h = img.size
+            w,h = img.size
             for y in range(0, h - patch_size + 1, step):
                 for x in range(0, w - patch_size + 1, step):
-                    ip = np.array(img.crop((x, y, x+patch_size, y+patch_size)), dtype=np.uint8)
-                    mp = np.array(msk.crop((x, y, x+patch_size, y+patch_size)), dtype=np.uint8)
+                    ip = np.array(img.crop((x,y,x+patch_size,y+patch_size)), dtype=np.uint8)
+                    mp = np.array(msk.crop((x,y,x+patch_size,y+patch_size)), dtype=np.uint8)
                     img_ds[i]  = ip
                     mask_ds[i] = mp
-                    coords[i]  = (x, y, patch_size, patch_size)
-                    names[i]   = fname
-                    i += 1
+                    names[i]   = cid
+                    i+=1
 
-        # Split setzen
-        idx = np.arange(N)
-        rng.shuffle(idx)
-        n_val = int(N * val_split)
+        # Train/Val Split setzen
+        idx = np.arange(N); rng.shuffle(idx)
+        n_val = int(N*val_split)
         val_idx = set(idx[:n_val])
         for j in range(N):
             split[j] = 1 if j in val_idx else 0
 
-    print("Fertig.")
+    print(f"Fertig: {out_path}")
 
 # =========================
 #   PYTORCH DATASET (H5)
@@ -165,17 +158,22 @@ def build_h5_dataset(
 class H5SegDataset(Dataset):
     def __init__(self, h5_path, split=0, class_values=(0,80,150,255)):
         super().__init__()
-        self.h5 = h5py.File(h5_path, "r", swmr=True, libver="latest")
-        self.images = self.h5["images"]
-        self.masks  = self.h5["masks"]
-        self.splits = self.h5["split"][...]
-        self.indices = np.where(self.splits == split)[0].astype(np.int64)
+        self.h5_path = h5_path
+        self.split_id = split
         self.class_values = np.array(class_values, dtype=np.uint8)
 
-        # Look-up-table (0..255 -> Klassenindex), -1 für „kein Match“
+        # Nur einmal Indexe vorbereiten, ohne Handle offen zu lassen
+        with h5py.File(self.h5_path, "r") as f:
+            splits = f["split"][...]
+        self.indices = np.where(splits == self.split_id)[0].astype(np.int64)
+
+        # Lookup-Tabelle für Maske->Klasse
         self.lut = np.full(256, -1, dtype=np.int16)
         for cls_id, v in enumerate(self.class_values):
             self.lut[int(v)] = cls_id
+
+        # Keine Datei hier offen halten!
+        self.h5 = None
 
         self.tf = A.Compose([
             A.HorizontalFlip(p=0.5),
@@ -186,27 +184,48 @@ class H5SegDataset(Dataset):
             ToTensorV2(),
         ])
 
+    def _ensure_open(self):
+        # Jeder Worker öffnet sein eigenes Handle beim ersten Zugriff
+        if self.h5 is None:
+            # SWMR + libver helfen bei stabilen parallelen Reads
+            self.h5 = h5py.File(self.h5_path, "r", swmr=True, libver="latest")
+            self.images = self.h5["images"]
+            self.masks  = self.h5["masks"]
+
     def __len__(self):
         return len(self.indices)
 
     def __getitem__(self, idx):
+        self._ensure_open()
         i = self.indices[idx]
         img = self.images[i]  # uint8 HWC
-        msk = self.masks[i]   # uint8 HW (enthält 0/80/150/255)
+        msk = self.masks[i]   # uint8 HW
 
         aug = self.tf(image=img, mask=msk)
         x   = aug["image"]    # FloatTensor CHW
         m   = aug["mask"].numpy().astype(np.uint8)  # HW
 
-        # zu Klassenindizes 0..C-1 mappen
         y_np = self.lut[m]
         if (y_np < 0).any():
-            # Falls Masken Pixelwerte außerhalb class_values haben
-            # setze sie auf eine gültige Klasse (hier 0) oder wirf Fehler:
             y_np = np.where(y_np < 0, 0, y_np)
-
         y = torch.from_numpy(y_np.astype(np.int64))
         return x, y
+
+    # Wichtig: Pickling-freundlich machen (Handle nicht mitsenden)
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state["h5"] = None
+        # images/masks sind nur Views – auch entfernen
+        state.pop("images", None)
+        state.pop("masks", None)
+        return state
+
+    def __del__(self):
+        try:
+            if getattr(self, "h5", None) is not None:
+                self.h5.close()
+        except Exception:
+            pass
 
 # =========================
 #   KLASSEGEWICHTE
@@ -260,7 +279,7 @@ if __name__ == "__main__":
 
     patch_size   = 512
     overlap      = 0.5
-    resize_half  = True
+    resize_half  = False
     val_split    = 0.2
     seed         = 42
 
@@ -272,26 +291,24 @@ if __name__ == "__main__":
     amp      = torch.cuda.is_available()
 
     # --- H5 erzeugen (einmalig) ---
-    if not os.path.exists(h5_path):
-        build_h5_dataset(
+    build_h5_dataset(
             img_dir, mask_dir, out_path=h5_path,
             class_values=class_values,
             patch_size=patch_size, overlap=overlap, resize_half=resize_half,
-            val_split=val_split, seed=seed, compression="lzf"
-        )
+            val_split=val_split, seed=seed, compression="lzf")
 
     # --- Dataset / Loader ---
     train_ds = H5SegDataset(h5_path, split=0, class_values=class_values)
     val_ds   = H5SegDataset(h5_path, split=1, class_values=class_values)
 
-    train_loader = DataLoader(
-        train_ds, batch_size=bs, shuffle=True, num_workers=nw,
-        pin_memory=True, persistent_workers=(nw>0), prefetch_factor=2
-    )
-    val_loader = DataLoader(
-        val_ds, batch_size=bs, shuffle=False, num_workers=nw,
-        pin_memory=True, persistent_workers=(nw>0)
-    )
+
+    #Variante B – schneller (nachdem es läuft, gern aufdrehen)
+    train_loader = DataLoader(train_ds, batch_size=8, shuffle=True,
+                               num_workers=nw, pin_memory=True,
+                               persistent_workers=True, prefetch_factor=2)
+    val_loader   = DataLoader(val_ds,   batch_size=8, shuffle=False,
+                               num_workers=nw, pin_memory=True,
+                               persistent_workers=True)
 
     # --- Modell/Optim/Scheduler ---
     model = UNet(n_classes).to(device)
@@ -311,7 +328,7 @@ if __name__ == "__main__":
         model.eval()
 
     # --- Training ---
-    scaler = torch.cuda.amp.GradScaler(enabled=amp)
+    scaler = torch.amp.GradScaler(device="cuda" if torch.cuda.is_available() else "cpu", enabled=amp)
     losses, val_losses = [], []
 
     for epoch in range(epochs):
@@ -338,7 +355,7 @@ if __name__ == "__main__":
         # ------ Validation ------
         model.eval()
         val_loss, val_dice = 0.0, 0.0
-        with torch.no_grad(), torch.cuda.amp.autocast(enabled=amp):
+        with torch.no_grad(), torch.amp.autocast('cuda',enabled=amp):
             for imgs, masks in tqdm(val_loader, desc="Val"):
                 imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
                 logits = model(imgs)
@@ -354,14 +371,11 @@ if __name__ == "__main__":
         scheduler.step(val_loss)
 
         print(f"Epoch {epoch} — Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}")
-
+        with open("log_filip.txt","+a") as f:
+            f.write(f"Epoch {epoch} — Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}\n")
+            f.close()
         if val_dice > best_iou:
             best_iou = val_dice
             torch.save(model.state_dict(), checkpoint)
 
-    # --- Plot ---
-    plt.figure()
-    plt.plot(range(len(losses)), losses, label='Train Loss')
-    plt.plot(range(len(val_losses)), val_losses, label='Validation Loss')
-    plt.xlabel('Epoch'); plt.ylabel('Loss'); plt.title('Training and Validation Loss'); plt.legend()
-    plt.show()
+# %%
