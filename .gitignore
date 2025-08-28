@@ -17,3 +17,4 @@ wandb/
 *.dng
 .DS_Store
 .h5
+dataset.h5
