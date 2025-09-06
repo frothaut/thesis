@@ -274,8 +274,8 @@ if __name__ == "__main__":
     img_dir      = "images/imgs"
     mask_dir     = "images/masks"
     h5_path      = "dataset.h5"
-    n_classes    = 4
-    class_values = (0, 80, 150, 255)
+    n_classes    = 5
+    class_values = (0, 40, 80, 150, 255)
 
     patch_size   = 512
     overlap      = 0.5
