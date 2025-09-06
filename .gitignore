@@ -18,3 +18,4 @@ wandb/
 .DS_Store
 .h5
 dataset.h5
+pointrenddataset.h5
