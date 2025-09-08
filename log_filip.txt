@@ -118,3 +118,13 @@ Epoch 56  Train Loss: 0.2772 | Val Loss: 0.2320 | Val Dice: 0.2509
 Epoch 57  Train Loss: 0.2784 | Val Loss: 0.2358 | Val Dice: 0.2528
 Epoch 58  Train Loss: 0.2824 | Val Loss: 0.2313 | Val Dice: 0.2500
 Epoch 59  Train Loss: 0.2762 | Val Loss: 0.2296 | Val Dice: 0.2521
+Epoch 0  Train Loss: 1.0224 | Val Loss: 0.7243 | Val Dice: 0.1607
+Epoch 1  Train Loss: 0.8268 | Val Loss: 0.6954 | Val Dice: 0.1631
+Epoch 2  Train Loss: 0.7521 | Val Loss: 0.6345 | Val Dice: 0.1640
+Epoch 3  Train Loss: 0.6973 | Val Loss: 0.5628 | Val Dice: 0.1754
+Epoch 4  Train Loss: 0.6524 | Val Loss: 0.5400 | Val Dice: 0.1730
+Epoch 5  Train Loss: 0.6273 | Val Loss: 0.5160 | Val Dice: 0.1710
+Epoch 6  Train Loss: 0.6019 | Val Loss: 0.5686 | Val Dice: 0.1701
+Epoch 7  Train Loss: 0.5801 | Val Loss: 0.5188 | Val Dice: 0.1775
+Epoch 8  Train Loss: 0.5668 | Val Loss: 0.4913 | Val Dice: 0.1735
+Epoch 9  Train Loss: 0.5408 | Val Loss: 0.4235 | Val Dice: 0.1864
