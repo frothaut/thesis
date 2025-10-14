@@ -284,7 +284,7 @@ if __name__ == "__main__":
     seed         = 42
 
     lr       = 1e-4
-    epochs   = 70
+    epochs   = 20
     bs       = 8
     nw       = 4  # num_workers
     device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
