@@ -265,6 +265,25 @@ def dice_coef(pred, target, eps=1e-6):
 
 def weighted_cross_entropy_loss(logits, masks, class_weights):
     return F.cross_entropy(logits, masks, weight=class_weights)
+# --- Dice-Helfer: identische Berechnung für Train & Val ---
+def _dice_eval(logits, masks_idx, n_classes, exclude_bg=True):
+    # logits: (B, C, H, W), masks_idx: (B, H, W) mit Klassen-IDs 0..C-1
+    probs = torch.softmax(logits, dim=1)
+    preds_idx = probs.argmax(dim=1)                                 # (B, H, W)
+    preds_1h  = torch.nn.functional.one_hot(preds_idx, n_classes)   # (B, H, W, C)
+    preds_1h  = preds_1h.permute(0, 3, 1, 2).float()                 # (B, C, H, W)
+    masks_1h  = torch.nn.functional.one_hot(masks_idx, n_classes)    # (B, H, W, C)
+    masks_1h  = masks_1h.permute(0, 3, 1, 2).float()                 # (B, C, H, W)
+
+    # Per-Klasse Dice (numerisch stabil)
+    eps = 1e-7
+    inter = (preds_1h * masks_1h).sum(dim=(0, 2, 3))                 # (C,)
+    union = (preds_1h + masks_1h).sum(dim=(0, 2, 3))                 # (C,)
+    dice_per_class = (2.0 * inter + eps) / (union + eps)             # (C,)
+
+    if exclude_bg and n_classes > 1:
+        dice_per_class = dice_per_class[1:]  # Klasse 0 als Hintergrund
+    return dice_per_class.mean().item()
 
 # =========================
 #   MAIN
@@ -334,7 +353,7 @@ if __name__ == "__main__":
     for epoch in range(epochs):
         model.train()
         train_loss = 0.0
-        train_dice = 0.0           
+          
 
         for imgs, masks in tqdm(train_loader, desc=f"Train Ep {epoch}"):
             imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
@@ -342,14 +361,7 @@ if __name__ == "__main__":
             optimizer.zero_grad(set_to_none=True)
             with torch.cuda.amp.autocast(enabled=amp):
                 logits = model(imgs)
-                loss = weighted_cross_entropy_loss(logits, masks, class_weights)
-             # ---- Train-Dice berechnen (ohne Grad-Graph) ----
-            with torch.no_grad():    
-                preds = torch.softmax(logits, dim=1)                     
-                masks_1h = torch.nn.functional.one_hot(                  
-                    masks, num_classes=n_classes                         
-                ).permute(0, 3, 1, 2).float()                            
-                train_dice += dice_coef(preds, masks_1h).item()          
+                loss = weighted_cross_entropy_loss(logits, masks, class_weights)        
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -357,7 +369,6 @@ if __name__ == "__main__":
             train_loss += loss.item()
 
         train_loss /= max(1, len(train_loader))
-        train_dice /= max(1, len(train_loader)) 
         losses.append(train_loss)
 
         # ------ Validation ------
@@ -367,18 +378,27 @@ if __name__ == "__main__":
             for imgs, masks in tqdm(val_loader, desc="Val"):
                 imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
                 logits = model(imgs)
-                preds = F.softmax(logits, dim=1)
-
                 val_loss += F.cross_entropy(logits, masks, weight=class_weights).item()
-                masks_one_hot = F.one_hot(masks, num_classes=n_classes).permute(0, 3, 1, 2).float()
-                val_dice += dice_coef(preds, masks_one_hot).item()
+                val_dice += _dice_eval(logits, masks, n_classes=n_classes, exclude_bg=True)
 
         val_loss /= max(1, len(val_loader))
         val_dice /= max(1, len(val_loader))
         val_losses.append(val_loss)
         scheduler.step(val_loss)
 
-        
+        # ------ Train-Dice (Eval, identische Berechnung, wenige Batches genügen) ------
+        model.eval()
+        train_dice_eval = 0.0
+        n_batches = 0
+        with torch.no_grad(), torch.amp.autocast(device_type='cuda', enabled=amp):
+            for imgs, masks in train_loader:
+                imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
+                logits = model(imgs)
+                train_dice_eval += _dice_eval(logits, masks, n_classes=n_classes, exclude_bg=True)
+                n_batches += 1
+                if n_batches >= 4:   # schnell & repräsentativ
+                    break
+        train_dice = train_dice_eval / max(1, n_batches)
         print(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Train Dice: {train_dice:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}")
         with open("log_filip.txt", "+a") as f:
             f.write(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Train Dice: {train_dice:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}\n")
