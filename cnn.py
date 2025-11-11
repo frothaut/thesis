@@ -275,7 +275,7 @@ if __name__ == "__main__":
     mask_dir     = "images/masks"
     h5_path      = "dataset.h5"
     n_classes    = 5
-    class_values = (0, 40, 80, 150, 255)
+    class_values = (0, 40, 80, 150, 255)      
 
     patch_size   = 512
     overlap      = 0.5
@@ -284,7 +284,7 @@ if __name__ == "__main__":
     seed         = 42
 
     lr       = 1e-4
-    epochs   = 20
+    epochs   = 70
     bs       = 8
     nw       = 4  # num_workers
     device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -334,6 +334,7 @@ if __name__ == "__main__":
     for epoch in range(epochs):
         model.train()
         train_loss = 0.0
+        train_dice = 0.0           
 
         for imgs, masks in tqdm(train_loader, desc=f"Train Ep {epoch}"):
             imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
@@ -342,7 +343,13 @@ if __name__ == "__main__":
             with torch.cuda.amp.autocast(enabled=amp):
                 logits = model(imgs)
                 loss = weighted_cross_entropy_loss(logits, masks, class_weights)
-
+             # ---- Train-Dice berechnen (ohne Grad-Graph) ----
+            with torch.no_grad():    
+                preds = torch.softmax(logits, dim=1)                     
+                masks_1h = torch.nn.functional.one_hot(                  
+                    masks, num_classes=n_classes                         
+                ).permute(0, 3, 1, 2).float()                            
+                train_dice += dice_coef(preds, masks_1h).item()          
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -350,6 +357,7 @@ if __name__ == "__main__":
             train_loss += loss.item()
 
         train_loss /= max(1, len(train_loader))
+        train_dice /= max(1, len(train_loader)) 
         losses.append(train_loss)
 
         # ------ Validation ------
@@ -370,9 +378,10 @@ if __name__ == "__main__":
         val_losses.append(val_loss)
         scheduler.step(val_loss)
 
-        print(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}")
-        with open("log_filip.txt","+a") as f:
-            f.write(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}\n")
+        
+        print(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Train Dice: {train_dice:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}")
+        with open("log_filip.txt", "+a") as f:
+            f.write(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Train Dice: {train_dice:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}\n")
             f.close()
         if val_dice > best_iou:
             best_iou = val_dice

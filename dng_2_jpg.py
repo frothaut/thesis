@@ -10,16 +10,17 @@ import subprocess
 from pathlib import Path
 import shutil
 import sys
+from tqdm import tqdm
 
 # =====================================================
 # 🧩 CONFIG — hier kannst du alles anpassen
 # =====================================================
 
 # Eingabeordner mit .DNG-Dateien
-INPUT_DIR = Path("/Users/filiprothaut/Documents/HCU/Masterthesis")
+INPUT_DIR = Path("E:/Rothaut_Masterthesis/raw")
 
 # Ausgabeordner für die JPGs
-OUTPUT_DIR = Path("/Users/filiprothaut/Documents/HCU/Masterthesis")
+OUTPUT_DIR = Path("E:/Rothaut_Masterthesis/jpg_new")
 
 # Rekursiv durch Unterordner gehen?
 RECURSIVE = False
@@ -43,9 +44,10 @@ EXIFTOOL_CMD = (
 # - Oder absolut setzen, z.B.:
 #   DARKTABLE_CLI = "/Applications/darktable.app/Contents/MacOS/darktable-cli"
 #   EXIFTOOL     = "/opt/homebrew/bin/exiftool"
-DARKTABLE_CLI = "/Applications/darktable.app/Contents/MacOS/darktable-cli"
-EXIFTOOL     = None
-
+#DARKTABLE_CLI = "/Applications/darktable.app/Contents/MacOS/darktable-cli" MACOS
+DARKTABLE_CLI = "C:/Program Files/darktable/bin/darktable-cli.exe"#windows
+#EXIFTOOL     = None
+EXIFTOOL = "exiftool.exe" # windows
 # =========================
 
 
@@ -65,27 +67,34 @@ def resolve_tool(name: str, explicit_path: str | None, fallbacks: list[str]) -> 
 
 # <<<<<< Hier dein XMP mit 'embedded metadata' Lens Correction eintragen >>>>>>
 # Beispiel: aus der GUI erzeugtes XMP, das nur das Lens-Correction-Modul setzt
-XMP_PATH = Path("/Users/filiprothaut/Documents/HCU/Masterthesis/exif_dummy.DNG.xmp")  # oder None
+#XMP_PATH = Path("/Users/filiprothaut/Documents/HCU/Masterthesis/exif_dummy.DNG.xmp")  # oder None
 
 EXIFTOOL_CMD = (
     'exiftool -q -q -TagsFromFile "{src}" -all:all -overwrite_original_in_place "{dst}"'
 )
 # --- /CONFIG ---
 
-def convert_with_darktable(src: Path, dst: Path):
+def convert_with_darktable(src: Path, dst: Path, nr):
     cmd = [
         DARKTABLE_CLI,
-        str(src),
+        src.as_posix(),
     ]
+    n = 3
+    if nr <602:
+        n = 1
+    if nr >601 and nr <828:
+        n = 2
+    XMP_PATH = Path(f"E:/Rothaut_Masterthesis/thesis/exif_dummy.DNG{n}.xmp")
     if XMP_PATH:
-        cmd.append(str(XMP_PATH))  # <<-- hier wird das XMP eingeschleust
+        
+        cmd.append(XMP_PATH.as_posix())
     cmd += [
-        str(dst),
+        dst.name,                 # nur der Dateiname!
         "--core",
         "--conf", f"plugins/imageio/format/jpeg/quality={JPEG_QUALITY}",
     ]
     print(f"[darktable] {src.name} -> {dst.name} (embedded lens metadata via XMP)")
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, check=True, cwd=OUTPUT_DIR)  # hier liegt die Magie
 def copy_exif(exiftool: str, src: Path, dst: Path, cmd_template: str) -> None:
     # Ersetzt {src}/{dst} und führt als shell command aus (damit Pipe/Quotes möglich sind)
     # Ersetzt 'exiftool' am Anfang automatisch durch den gefundenen Pfad, falls der String so beginnt.
@@ -129,13 +138,15 @@ def main():
         return
 
     fails = 0
-    for src in dngs:
+    for src in tqdm(dngs):
         dst = OUTPUT_DIR / src.with_suffix(".jpg").name
+        nr = int(src.name.replace("DJI_", "").replace(".DNG", ""))
+        print("NR", nr)
         if dst.exists() and not OVERWRITE:
             print(f"[skip] Existiert: {dst.name}")
             continue
         try:
-            convert_with_darktable(src, dst)
+            convert_with_darktable(src, dst, nr)
             copy_exif(exiftool, src, dst, EXIFTOOL_CMD)
         except subprocess.CalledProcessError as e:
             fails += 1
