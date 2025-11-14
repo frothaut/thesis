@@ -82,7 +82,7 @@ class UNet(nn.Module):
 
 def build_h5_dataset(
     img_dir, mask_dir, out_path="dataset.h5",
-    class_values=(0,80,150,255),
+    class_values=(0,40,80,150,255),
     patch_size=512, overlap=0.5, resize_half=False,
     val_split=0.2, seed=42, compression="lzf"):
     print("Starting to Build H5 Dataset")
@@ -254,7 +254,6 @@ def compute_class_weights_from_h5(h5_path, split=0, n_classes=4, class_values=(0
     # optional: normalisieren
     weights = weights / weights.mean()
     return torch.tensor(weights, dtype=torch.float32)
-
 # =========================
 #   TRAINING
 # =========================
@@ -265,25 +264,6 @@ def dice_coef(pred, target, eps=1e-6):
 
 def weighted_cross_entropy_loss(logits, masks, class_weights):
     return F.cross_entropy(logits, masks, weight=class_weights)
-# --- Dice-Helfer: identische Berechnung für Train & Val ---
-def _dice_eval(logits, masks_idx, n_classes, exclude_bg=True):
-    # logits: (B, C, H, W), masks_idx: (B, H, W) mit Klassen-IDs 0..C-1
-    probs = torch.softmax(logits, dim=1)
-    preds_idx = probs.argmax(dim=1)                                 # (B, H, W)
-    preds_1h  = torch.nn.functional.one_hot(preds_idx, n_classes)   # (B, H, W, C)
-    preds_1h  = preds_1h.permute(0, 3, 1, 2).float()                 # (B, C, H, W)
-    masks_1h  = torch.nn.functional.one_hot(masks_idx, n_classes)    # (B, H, W, C)
-    masks_1h  = masks_1h.permute(0, 3, 1, 2).float()                 # (B, C, H, W)
-
-    # Per-Klasse Dice (numerisch stabil)
-    eps = 1e-7
-    inter = (preds_1h * masks_1h).sum(dim=(0, 2, 3))                 # (C,)
-    union = (preds_1h + masks_1h).sum(dim=(0, 2, 3))                 # (C,)
-    dice_per_class = (2.0 * inter + eps) / (union + eps)             # (C,)
-
-    if exclude_bg and n_classes > 1:
-        dice_per_class = dice_per_class[1:]  # Klasse 0 als Hintergrund
-    return dice_per_class.mean().item()
 
 # =========================
 #   MAIN
@@ -294,7 +274,7 @@ if __name__ == "__main__":
     mask_dir     = "images/masks"
     h5_path      = "dataset.h5"
     n_classes    = 5
-    class_values = (0, 40, 80, 150, 255)      
+    class_values = (0, 40, 80, 150, 255)
 
     patch_size   = 512
     overlap      = 0.5
@@ -303,7 +283,7 @@ if __name__ == "__main__":
     seed         = 42
 
     lr       = 1e-4
-    epochs   = 70
+    epochs   = 35
     bs       = 8
     nw       = 4  # num_workers
     device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -319,7 +299,6 @@ if __name__ == "__main__":
     # --- Dataset / Loader ---
     train_ds = H5SegDataset(h5_path, split=0, class_values=class_values)
     val_ds   = H5SegDataset(h5_path, split=1, class_values=class_values)
-
 
     #Variante B – schneller (nachdem es läuft, gern aufdrehen)
     train_loader = DataLoader(train_ds, batch_size=8, shuffle=True,
@@ -353,7 +332,6 @@ if __name__ == "__main__":
     for epoch in range(epochs):
         model.train()
         train_loss = 0.0
-          
 
         for imgs, masks in tqdm(train_loader, desc=f"Train Ep {epoch}"):
             imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
@@ -361,7 +339,8 @@ if __name__ == "__main__":
             optimizer.zero_grad(set_to_none=True)
             with torch.cuda.amp.autocast(enabled=amp):
                 logits = model(imgs)
-                loss = weighted_cross_entropy_loss(logits, masks, class_weights)        
+                loss = weighted_cross_entropy_loss(logits, masks, class_weights)
+
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -378,30 +357,20 @@ if __name__ == "__main__":
             for imgs, masks in tqdm(val_loader, desc="Val"):
                 imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
                 logits = model(imgs)
+                preds = F.softmax(logits, dim=1)
+
                 val_loss += F.cross_entropy(logits, masks, weight=class_weights).item()
-                val_dice += _dice_eval(logits, masks, n_classes=n_classes, exclude_bg=True)
+                masks_one_hot = F.one_hot(masks, num_classes=n_classes).permute(0, 3, 1, 2).float()
+                val_dice += dice_coef(preds, masks_one_hot).item()
 
         val_loss /= max(1, len(val_loader))
         val_dice /= max(1, len(val_loader))
         val_losses.append(val_loss)
         scheduler.step(val_loss)
 
-        # ------ Train-Dice (Eval, identische Berechnung, wenige Batches genügen) ------
-        model.eval()
-        train_dice_eval = 0.0
-        n_batches = 0
-        with torch.no_grad(), torch.amp.autocast(device_type='cuda', enabled=amp):
-            for imgs, masks in train_loader:
-                imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
-                logits = model(imgs)
-                train_dice_eval += _dice_eval(logits, masks, n_classes=n_classes, exclude_bg=True)
-                n_batches += 1
-                if n_batches >= 4:   # schnell & repräsentativ
-                    break
-        train_dice = train_dice_eval / max(1, n_batches)
-        print(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Train Dice: {train_dice:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}")
-        with open("log_filip.txt", "+a") as f:
-            f.write(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Train Dice: {train_dice:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}\n")
+        print(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}")
+        with open("log_filip.txt","+a") as f:
+            f.write(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}\n")
             f.close()
         if val_dice > best_iou:
             best_iou = val_dice

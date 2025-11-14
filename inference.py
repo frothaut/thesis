@@ -1,6 +1,4 @@
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-
+import os
 from pathlib import Path
 import numpy as np
 from PIL import Image
@@ -9,22 +7,22 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms
-import matplotlib.pyplot as plt
+from tqdm import tqdm
+import pandas as pd
 
 # =========================
 # H A R D C O D E D  CONFIG
 # =========================
-CHECKPOINT_PATH = "best_unet.pth"               # gespeichertes Modell
+CHECKPOINT_PATH = "best_unet.pth"               # dein gespeichertes Modell
 INPUT_DIR       = "predictions/testdaten"       # Eingabe-Bilder
 OUTPUT_DIR      = "predictions/predictions"     # Ausgabepfade werden erstellt
-GT_DIR          = r"E:\Rothaut_Masterthesis\thesis\images\masks"                 # Ground-Truth-Masken im Originalverzeichnis
+GT_DIR          = "predictions/gt"              # Ground-Truth-Masken (Graustufen), gleicher Dateistamm
 CLASS_VALUES    = [0, 40, 80, 150, 255]         # Graustufen je Klassenindex (0..N_CLASSES-1)
 N_CLASSES       = 5
 SCALE_FACTOR    = 0.5                           # wie im Training: Breite/Höhe halbieren
 SAVE_OVERLAY    = True                          # optionales Overlay-PNG zusätzlich speichern
 OVERLAY_ALPHA   = 0.5                           # Transparenz für Overlay
 VALID_EXTS      = (".jpg", ".jpeg", ".png", ".tif", ".tiff")
-
 
 # ==============
 # Modell-Definition
@@ -46,7 +44,6 @@ class DoubleConv(nn.Module):
 
     def forward(self, x):
         return self.conv(x)
-
 
 class UNet(nn.Module):
     def __init__(self, n_classes, base_c=64, dropout=0.3):
@@ -92,21 +89,18 @@ class UNet(nn.Module):
 
         return self.outc(c1)
 
-
 # ==================
 # Hilfsfunktionen
 # ==================
-
 def ensure_dir(p: Path):
     p.mkdir(parents=True, exist_ok=True)
-
 
 def build_transform():
     return transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                             std=[0.229, 0.224, 0.225])
     ])
-
 
 def to_grayscale_mask(pred_idx: np.ndarray, class_values: list[int]) -> np.ndarray:
     out = np.zeros_like(pred_idx, dtype=np.uint8)
@@ -114,10 +108,18 @@ def to_grayscale_mask(pred_idx: np.ndarray, class_values: list[int]) -> np.ndarr
         out[pred_idx == i] = val
     return out
 
+def class_index_map(class_values: list[int]) -> dict[int, int]:
+    """Erzeugt Mapping von Klasse-WERT -> Klassen-INDEX."""
+    return {v: i for i, v in enumerate(class_values)}
 
 def make_overlay(rgb_img: Image.Image, mask_idx: np.ndarray, alpha: float = 0.5) -> Image.Image:
+    # Farben sind symbolisch; Kommentare nennen die Zielklassen
     palette = np.array([
-        [0, 0, 0], [255, 255, 0], [0, 0, 255], [0, 255, 0], [255, 0, 0]
+        [0,   0,   0],   # index 0 -> 0 (background)
+        [255, 255, 0],   # index 1 -> 40
+        [0,   0, 255],   # index 2 -> 80
+        [0, 255,   0],   # index 3 -> 150
+        [255,   0, 0],   # index 4 -> 255
     ], dtype=np.uint8)
     colors = palette[mask_idx % len(palette)]
     color_mask = Image.fromarray(colors, mode="RGB").resize(rgb_img.size, Image.NEAREST)
@@ -128,20 +130,21 @@ def make_overlay(rgb_img: Image.Image, mask_idx: np.ndarray, alpha: float = 0.5)
     overlay.alpha_composite(cm)
     return overlay
 
-
-def class_index_map(class_values: list[int]) -> dict[int, int]:
-    return {v: i for i, v in enumerate(class_values)}
-
-
 def apply_exclusion_rule(
-    pred_idx: np.ndarray,
-    class_values: list[int],
+    pred_idx: np.ndarray, 
+    class_values: list[int], 
     threshold: float = 0.01
 ) -> np.ndarray:
     """
-    Originale Regel:
-    - Wenn Klasse 40 (gelb) ODER 80 (blau) mindestens `threshold` Anteil
-      der Pixel erreicht, wird Klasse 255 (rot) ausgeschlossen (auf Hintergrund 0 gesetzt).
+    Exclusion rule:
+    - If class 40 (yellow) or 80 (blue) reaches at least threshold
+      proportion of all pixels, then class 255 (red) is excluded
+      (replaced by background 0).
+    
+    Args:
+        pred_idx: ndarray with class indices (not raw grayscale).
+        class_values: list of grayscale values used for classes.
+        threshold: minimum fraction of pixels (0–1) required to trigger exclusion.
     """
     v2i = class_index_map(class_values)
     idx_yellow = v2i.get(40, None)
@@ -149,144 +152,235 @@ def apply_exclusion_rule(
     idx_red    = v2i.get(255, None)
     idx_bg     = v2i.get(0, 0)
 
-    total = pred_idx.size
-    frac_y = (np.sum(pred_idx == idx_yellow) / total) if idx_yellow is not None else 0.0
-    frac_b = (np.sum(pred_idx == idx_blue)   / total) if idx_blue   is not None else 0.0
+    total_pixels = pred_idx.size
+    frac_yellow = (
+        np.sum(pred_idx == idx_yellow) / total_pixels if idx_yellow is not None else 0
+    )
+    frac_blue = (
+        np.sum(pred_idx == idx_blue) / total_pixels if idx_blue is not None else 0
+    )
 
-    if (frac_y >= threshold or frac_b >= threshold) and idx_red is not None:
+    if (frac_yellow >= threshold or frac_blue >= threshold) and idx_red is not None:
         pred_idx = pred_idx.copy()
         pred_idx[pred_idx == idx_red] = idx_bg
+
     return pred_idx
 
+def find_matching_file(dirpath: Path, stem: str):
+    for ext in VALID_EXTS:
+        p = dirpath / f"{stem}{ext}"
+        if p.exists():
+            return p
+    # häufig sind GT-Masken .png – versuche das als Fallback
+    p = dirpath / f"{stem}.png"
+    return p if p.exists() else None
 
 def load_gt_index_mask(gt_dir: Path, stem: str, class_values: list[int]) -> np.ndarray | None:
-    nr = int(stem.replace("DJI_","").replace(".jpg",""))
-    gt_path = gt_dir / f"mask_0{nr}.png"
-    print(gt_path)
-    if not gt_path.exists():
+    """
+    Lädt eine GT-Maske als Klassenindex-Array (H x W), gemappt via CLASS_VALUES.
+    Gibt None zurück, wenn keine Datei gefunden wird.
+    """
+    gt_path = find_matching_file(gt_dir, stem)
+    if gt_path is None:
         return None
+
     arr = np.array(Image.open(gt_path).convert("L"))
+    # Mapping Graustufe -> Klassenindex
     lut = np.full(256, -1, dtype=np.int16)
     for i, v in enumerate(class_values):
         lut[int(v)] = i
     idx = lut[arr]
-    idx[idx < 0] = 0
+    # Unbekannte Werte -> Hintergrund (0) und Warnung auf Konsole
+    if (idx < 0).any():
+        unknown = int((idx < 0).sum())
+        print(f"[Warnung] {unknown} Pixel mit unbekanntem GT-Wert in {gt_path.name} -> setze auf Klasse 0")
+        idx[idx < 0] = 0
     return idx.astype(np.int32)
 
-
 @torch.no_grad()
-def predict_img(model: nn.Module, full_img: Image.Image, device: torch.device):
+def predict_img(model: nn.Module,
+                full_img: Image.Image,
+                device: torch.device):
+    """
+    Returns:
+      pred_idx: (H x W) Klassenindizes (np.int32)
+      resized_img: ggf. skaliertes PIL-Bild (für Overlay)
+      max_probs: (H x W) Top-1-Confidences (np.float32)
+      probs: (C x H x W) vollständige Softmax-Wahrscheinlichkeiten (np.float32)
+    """
     tf = build_transform()
     model.eval()
+
+    # Resize wie im Training (halbieren)
     if SCALE_FACTOR != 1.0:
         w, h = full_img.size
-        full_img = full_img.resize((int(w * SCALE_FACTOR), int(h * SCALE_FACTOR)), Image.Resampling.LANCZOS)
+        full_img = full_img.resize((int(w * SCALE_FACTOR), int(h * SCALE_FACTOR)),
+                                   Image.Resampling.LANCZOS)
 
     img_tensor = tf(full_img).unsqueeze(0).to(device=device, dtype=torch.float32)
-    logits = model(img_tensor)
+    logits = model(img_tensor)  # [1, C, h', w']
+
+    # Sicherheitshalber auf die (ggf. geänderte) Bildgröße bringen
     logits = F.interpolate(logits, size=full_img.size[::-1], mode='bilinear', align_corners=False)
-    probs = F.softmax(logits, dim=1)
-    max_probs, pred = torch.max(probs, dim=1)
+    probs  = F.softmax(logits, dim=1)  # [1, C, H, W]
+    max_probs, pred = torch.max(probs, dim=1)  # [1, H, W]
 
     pred_idx = pred.squeeze(0).cpu().numpy().astype(np.int32)
-    pred_idx = apply_exclusion_rule(pred_idx, CLASS_VALUES)  # <— Regel angewendet
+    pred_idx = apply_exclusion_rule(pred_idx, CLASS_VALUES)
+
     max_probs_np = max_probs.squeeze(0).cpu().numpy().astype(np.float32)
-    return pred_idx, full_img, max_probs_np
+    probs_np = probs.squeeze(0).cpu().numpy().astype(np.float32)  # (C, H, W)
 
+    return pred_idx, full_img, max_probs_np, probs_np
 
-def binary_confusion_per_class(pred_idx: np.ndarray, gt_idx: np.ndarray, n_classes: int):
-    """Compute TP, FP, FN, TN per class for a single pair of masks."""
+def compute_image_stats_without_gt(stem: str,
+                                   pred_idx: np.ndarray,
+                                   max_probs: np.ndarray,
+                                   probs: np.ndarray):
+    """
+    Metriken ohne Ground-Truth (wie zuvor).
+    """
     H, W = pred_idx.shape
-    assert gt_idx.shape == (H, W)
+    total_px = H * W
+    flat_probs = probs.reshape(probs.shape[0], -1)  # (C, N)
+    eps = 1e-12
+    entropy_per_px = -np.sum(flat_probs * np.log(flat_probs + eps), axis=0)
+    mean_entropy = float(np.mean(entropy_per_px))
 
-    tp = np.zeros(n_classes, dtype=np.int64)
-    fp = np.zeros(n_classes, dtype=np.int64)
-    fn = np.zeros(n_classes, dtype=np.int64)
-    tn = np.zeros(n_classes, dtype=np.int64)
+    stats = {
+        "file_stem": stem,
+        "width": W,
+        "height": H,
+        "pixels": int(total_px),
+        "mean_confidence": float(np.mean(max_probs)),
+        "median_confidence": float(np.median(max_probs)),
+        "mean_entropy": mean_entropy,
+        "num_present_classes_pred": int(len(np.unique(pred_idx)))
+    }
 
-    for c in range(n_classes):
-        pred_c = (pred_idx == c)
-        gt_c   = (gt_idx == c)
-        tp[c] = int(np.logical_and(pred_c, gt_c).sum())
-        fp[c] = int(np.logical_and(pred_c, ~gt_c).sum())
-        fn[c] = int(np.logical_and(~pred_c, gt_c).sum())
-        tn[c] = int(np.logical_and(~pred_c, ~gt_c).sum())
-    return tp, fp, fn, tn
+    # per Klasse: Anteil & mean Top-1-Conf über vorhergesagte Pixel
+    for cls_idx in range(probs.shape[0]):
+        mask_pred = (pred_idx == cls_idx)
+        pct = float(mask_pred.mean()) if total_px > 0 else 0.0
+        stats[f"pct_pred_class_{cls_idx}"] = pct
+        stats[f"mean_top1_conf_predclass_{cls_idx}"] = float(np.mean(max_probs[mask_pred])) if mask_pred.any() else np.nan
 
-def plot_per_class_binary_confusion(tp: np.ndarray, fp: np.ndarray, fn: np.ndarray, tn: np.ndarray, out_path: Path):
-    """Plot one subplot per class with bars for TP, FP, FN, TN in percent."""
-    C = tp.shape[0]
-    cols = min(5, C)
-    rows = int(np.ceil(C / cols))
+    return stats
 
-    fig, axes = plt.subplots(rows, cols, figsize=(4 * cols, 3.2 * rows), dpi=150)
-    if rows == 1 and cols == 1:
-        axes = np.array([[axes]])
-    elif rows == 1:
-        axes = np.array([axes])
+def confusion_from_labels(pred_idx: np.ndarray, gt_idx: np.ndarray, n_classes: int) -> np.ndarray:
+    """
+    Liefert (C x C) Konfusionsmatrix mit counts.
+    rows = GT, cols = PRED
+    """
+    cm = np.zeros((n_classes, n_classes), dtype=np.int64)
+    flat_pred = pred_idx.reshape(-1)
+    flat_gt   = gt_idx.reshape(-1)
+    for c_true in range(n_classes):
+        mask = (flat_gt == c_true)
+        if not mask.any():
+            continue
+        preds = flat_pred[mask]
+        counts = np.bincount(preds, minlength=n_classes)
+        cm[c_true, :] += counts
+    return cm
+
+def safe_div(a, b):
+    return float(a) / float(b) if b != 0 else np.nan
+
+def compute_gt_metrics(pred_idx: np.ndarray,
+                       gt_idx: np.ndarray,
+                       probs: np.ndarray,
+                       max_probs: np.ndarray):
+    """
+    Berechnet pro Bild:
+      - overall_pixel_acc
+      - mIoU (über alle Klassen) und mIoU_gt_present (nur Klassen, die im GT vorkommen)
+      - pro Klasse: IoU, Dice, Precision, Recall
+      - per-Klasse Confidences:
+          * mean_top1_conf_predclass_c (bereits oben, aber hier nochmal korrekt/inkorrekt getrennt)
+          * mean_top1_conf_correct_c  (GT=c & PRED=c)
+          * mean_top1_conf_incorrect_predclass_c (PRED=c & GT!=c)
+          * mean_prob_trueclass_c (mittlere Softmax-Wahrscheinlichkeit für die TRUE-Klasse über GT=c)
+    """
+    C = probs.shape[0]
+    cm = confusion_from_labels(pred_idx, gt_idx, C)
+    total = int(cm.sum())
+    correct = int(np.trace(cm))
+    overall_acc = safe_div(correct, total)
+
+    ious, dices, precs, recs = [], [], [], []
+    iou_per_class = {}
+    dice_per_class = {}
+    prec_per_class = {}
+    rec_per_class = {}
+
+    # Per-Klasse Confidences
+    mean_top1_conf_correct = {}
+    mean_top1_conf_incorrect_pred = {}
+    mean_prob_trueclass = {}
 
     for c in range(C):
-        r, k = divmod(c, cols)
-        ax = axes[r, k]
+        TP = int(cm[c, c])
+        FP = int(cm[:, c].sum() - TP)
+        FN = int(cm[c, :].sum() - TP)
+        denom_iou = TP + FP + FN
+        denom_dice = 2*TP + FP + FN
 
-        total = tp[c] + fp[c] + fn[c] + tn[c]
-        if total == 0:
-            values = [0, 0, 0, 0]
+        iou = safe_div(TP, denom_iou)
+        dice = safe_div(2*TP, denom_dice)
+        prec = safe_div(TP, TP + FP)
+        rec  = safe_div(TP, TP + FN)
+
+        ious.append(iou); dices.append(dice); precs.append(prec); recs.append(rec)
+        iou_per_class[c] = iou
+        dice_per_class[c] = dice
+        prec_per_class[c] = prec
+        rec_per_class[c]  = rec
+
+        # Confidences je Klasse
+        mask_true_c = (gt_idx == c)
+        mask_pred_c = (pred_idx == c)
+        mask_correct = mask_true_c & mask_pred_c
+        mask_incorrect_pred = mask_pred_c & (~mask_true_c)
+
+        mean_top1_conf_correct[c] = float(np.mean(max_probs[mask_correct])) if mask_correct.any() else np.nan
+        mean_top1_conf_incorrect_pred[c] = float(np.mean(max_probs[mask_incorrect_pred])) if mask_incorrect_pred.any() else np.nan
+
+        # Mittlere Wahrscheinlichkeit für die TRUE-Klasse über alle Pixel mit GT=c
+        # probs hat Shape (C, H, W)
+        if mask_true_c.any():
+            true_probs = probs[c][mask_true_c]
+            mean_prob_trueclass[c] = float(np.mean(true_probs))
         else:
-            values = [v / total * 100 for v in [tp[c], fp[c], fn[c], tn[c]]]
+            mean_prob_trueclass[c] = np.nan
 
-        ax.bar(["TP", "FP", "FN", "TN"], values)
-        ax.set_title(f"Class {c}")
-        ax.set_ylabel("Percentage (%)")
-        ax.set_ylim(0, 100)
+    # mIoU über alle Klassen:
+    miou_all = float(np.nanmean(ious)) if len(ious) else np.nan
+    # mIoU nur über Klassen, die im GT vorkamen:
+    present_gt = [c for c in range(C) if cm[c, :].sum() > 0]
+    miou_gt_present = float(np.nanmean([iou_per_class[c] for c in present_gt])) if present_gt else np.nan
 
-        for i, v in enumerate(values):
-            ax.text(i, v, f"{v:.1f}%", ha='center', va='bottom')
+    metrics = {
+        "overall_pixel_acc": overall_acc,
+        "miou_all": miou_all,
+        "miou_gt_present": miou_gt_present,
+    }
 
-    # Hide any unused subplots
-    total_axes = rows * cols
-    for idx in range(C, total_axes):
-        r, k = divmod(idx, cols)
-        fig.delaxes(axes[r, k])
+    # pro Klasse ausgeben
+    for c in range(C):
+        metrics[f"iou_{c}"] = iou_per_class[c]
+        metrics[f"dice_{c}"] = dice_per_class[c]
+        metrics[f"precision_{c}"] = prec_per_class[c]
+        metrics[f"recall_{c}"] = rec_per_class[c]
+        metrics[f"mean_top1_conf_correct_{c}"] = mean_top1_conf_correct[c]
+        metrics[f"mean_top1_conf_incorrect_predclass_{c}"] = mean_top1_conf_incorrect_pred[c]
+        metrics[f"mean_prob_trueclass_{c}"] = mean_prob_trueclass[c]
 
-    fig.suptitle("Binary Confusion (TP/FP/FN/TN) per Class [%]", y=0.995)
-    fig.tight_layout()
-    fig.savefig(out_path)
-    plt.close(fig)
-
-
-def plot_confusion_matrix(cm: np.ndarray, classes: int, out_path: Path):
-    """Plot normalized confusion matrix (in percent)."""
-    cm_percent = cm.astype(float)
-    row_sums = cm_percent.sum(axis=1, keepdims=True)
-    cm_percent = np.divide(cm_percent, row_sums, out=np.zeros_like(cm_percent), where=row_sums != 0) * 100
-
-    fig, ax = plt.subplots(figsize=(6, 5), dpi=150)
-    im = ax.imshow(cm_percent, interpolation='nearest')
-    ax.set_title('Confusion Matrix (aggregated, %)')
-    ax.set_xlabel('Predicted label')
-    ax.set_ylabel('True label')
-    ax.set_xticks(range(classes))
-    ax.set_yticks(range(classes))
-    ax.set_xticklabels([str(i) for i in range(classes)])
-    ax.set_yticklabels([str(i) for i in range(classes)])
-
-    # Prozentwerte annotieren
-    for i in range(classes):
-        for j in range(classes):
-            ax.text(j, i, f"{cm_percent[i, j]:.1f}%", ha='center', va='center')
-
-    plt.tight_layout()
-    fig.savefig(out_path)
-    plt.close(fig)
-
+    return metrics
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = UNet(N_CLASSES).to(device)
-    ckpt = torch.load(CHECKPOINT_PATH, map_location=device)
-    model.load_state_dict(ckpt)
-    model.eval()
+    model = load_model(CHECKPOINT_PATH, N_CLASSES, device)
 
     in_dir = Path(INPUT_DIR)
     out_dir = Path(OUTPUT_DIR)
@@ -298,17 +392,13 @@ def main():
         print(f"Keine Eingabebilder in {in_dir} gefunden. Erwarte Endungen: {VALID_EXTS}")
         return
 
-    tp_sum = np.zeros(N_CLASSES, dtype=np.int64)
-    fp_sum = np.zeros(N_CLASSES, dtype=np.int64)
-    fn_sum = np.zeros(N_CLASSES, dtype=np.int64)
-    tn_sum = np.zeros(N_CLASSES, dtype=np.int64)
-    conf_sum_per_class = np.zeros(N_CLASSES, dtype=np.float64)
-    conf_count_per_class = np.zeros(N_CLASSES, dtype=np.int64)
+    all_rows = []
 
-    for img_path in files:
+    for img_path in tqdm(files, desc="Inferenz"):
         img = Image.open(img_path).convert("RGB")
-        pred_idx, resized_img, max_probs = predict_img(model, img, device)
+        pred_idx, resized_img, max_probs, probs = predict_img(model, img, device)
 
+        # Graustufenmaske mit CLASS_VALUES
         mask_gray = to_grayscale_mask(pred_idx, CLASS_VALUES)
         mask_img = Image.fromarray(mask_gray).convert('L')
 
@@ -321,45 +411,61 @@ def main():
             overlay_out = out_dir / f"{stem}_overlay.png"
             overlay_img.save(overlay_out)
 
-        for c in range(N_CLASSES):
-            m = (pred_idx == c)
-            if m.any():
-                conf_sum_per_class[c] += float(max_probs[m].sum())
-                conf_count_per_class[c] += int(m.sum())
+        # --- Basis-Stats ohne GT ---
+        row = compute_image_stats_without_gt(stem, pred_idx, max_probs, probs)
 
+        # --- Ground-Truth laden & Metriken ---
         gt_idx = load_gt_index_mask(gt_dir, stem, CLASS_VALUES)
         if gt_idx is not None:
             if gt_idx.shape != pred_idx.shape:
+                # Falls nötig, auf gleiche Größe wie Vorhersage bringen (Nearest, da Labels)
                 gt_img = Image.fromarray(gt_idx.astype(np.uint8), mode="L")
                 gt_img = gt_img.resize(pred_idx.shape[::-1], Image.NEAREST)
                 gt_idx = np.array(gt_img, dtype=np.int32)
-            tp, fp, fn, tn = binary_confusion_per_class(pred_idx, gt_idx, N_CLASSES)
-            tp_sum += tp; fp_sum += fp; fn_sum += fn; tn_sum += tn
+
+            gt_metrics = compute_gt_metrics(pred_idx, gt_idx, probs, max_probs)
+            # Anzahl Klassen im GT
+            row["num_present_classes_gt"] = int(len(np.unique(gt_idx)))
+            row.update(gt_metrics)
         else:
-            print(f"[Hinweis] Keine GT für {stem} gefunden.")
+            # keine GT gefunden
+            row["num_present_classes_gt"] = np.nan
+            # setze alle GT-bezogenen Keys auf NaN konsistent zu N_CLASSES
+            row.update({
+                "overall_pixel_acc": np.nan,
+                "miou_all": np.nan,
+                "miou_gt_present": np.nan,
+            })
+            for c in range(N_CLASSES):
+                row[f"iou_{c}"] = np.nan
+                row[f"dice_{c}"] = np.nan
+                row[f"precision_{c}"] = np.nan
+                row[f"recall_{c}"] = np.nan
+                row[f"mean_top1_conf_correct_{c}"] = np.nan
+                row[f"mean_top1_conf_incorrect_predclass_{c}"] = np.nan
+                row[f"mean_prob_trueclass_{c}"] = np.nan
 
-        print(f"Gespeichert: {mask_out}")
-        if SAVE_OVERLAY:
-            print(f"Gespeichert: {overlay_out}")
+        all_rows.append(row)
 
-    # Plot pro Klasse (TP/FP/FN/TN)
-    cm_png = out_dir / "binary_confusion_per_class.png"
-    plot_per_class_binary_confusion(tp_sum, fp_sum, fn_sum, tn_sum, cm_png)
-    print(f"Binary-Konfusion gespeichert als Bild: {cm_png}")
+    # --- Tabelle schreiben ---
+    df = pd.DataFrame(all_rows)
+    csv_path = out_dir / "auswertung.csv"
+    df.to_csv(csv_path, index=False)
 
-    # Ein Score (Prozent) pro Klasse: mittlere Top-1-Confidence über alle Pixel der jeweiligen Vorhersageklasse
-    mean_conf_per_class = np.full(N_CLASSES, np.nan, dtype=np.float64)
-    for c in range(N_CLASSES):
-        if conf_count_per_class[c] > 0:
-            mean_conf_per_class[c] = 100.0 * (conf_sum_per_class[c] / conf_count_per_class[c])
-
-    print("\nKonfidenz-Score je Klasse (%):")
-    for c, v in enumerate(mean_conf_per_class):
-        val = f"{v:.2f}%" if not np.isnan(v) else "NaN"
-        print(f"Klasse {c}: {val}")
-
+    with pd.option_context('display.max_columns', None, 'display.width', 220):
+        print("\n=== Zusammenfassung (erste Zeilen) ===")
+        print(df.head())
+        
+        
     print(f"\nFertig. Ergebnisse liegen in: {out_dir.resolve()}")
+    print(f"Auswertungs-Tabelle gespeichert als: {csv_path.resolve()}")
 
+def load_model(checkpoint_path: str, n_classes: int, device: torch.device) -> nn.Module:
+    model = UNet(n_classes).to(device)
+    ckpt = torch.load(checkpoint_path, map_location=device)
+    model.load_state_dict(ckpt)
+    model.eval()
+    return model
 
 if __name__ == "__main__":
     main()
