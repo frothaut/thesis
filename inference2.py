@@ -19,7 +19,7 @@ from tqdm import tqdm
 CHECKPOINT_PATH = "best_unet.pth"               # dein gespeichertes Modell
 INPUT_DIR       = "predictions/testdaten"       # Eingabe-Bilder
 OUTPUT_DIR      = "predictions/predictions"     # Ausgabepfade werden erstellt
-CLASS_VALUES    = [0, 40, 80, 150, 255]         # 0=background, 40=blue, 80=yellow, 150=green, 255=red
+CLASS_VALUES    = [0, 40, 80, 150, 255]             # Graustufen je Klassenindex 0 = background, 40 = blue, 80 = yellow, 150= green, 255 = red
 N_CLASSES       = 5
 SCALE_FACTOR    = 0.5                           # wie im Training: Breite/Höhe halbieren
 SAVE_OVERLAY    = True                          # optionales Overlay-PNG zusätzlich speichern
@@ -110,37 +110,24 @@ def build_transform():
 
 
 def to_grayscale_mask(pred_idx: np.ndarray, class_values: list[int]) -> np.ndarray:
-    """Mappt Klassen-INDIZES -> gewünschte Graustufenwerte aus CLASS_VALUES."""
     out = np.zeros_like(pred_idx, dtype=np.uint8)
     for i, val in enumerate(class_values):
         out[pred_idx == i] = val
     return out
-
-
 def class_index_map(class_values: list[int]) -> dict[int, int]:
     """Erzeugt Mapping von Klasse-WERT -> Klassen-INDEX."""
     return {v: i for i, v in enumerate(class_values)}
 
 
 def make_overlay(rgb_img: Image.Image, mask_idx: np.ndarray, alpha: float = 0.5) -> Image.Image:
-    """
-    Erzeugt ein farbiges Overlay, dessen Farben EXAKT den CLASS_VALUES-Kommentaren entsprechen:
-        0 (background) -> schwarz
-        40 (blue)      -> gelb
-        80 (yellow)    -> blau
-        150 (green)    -> grün
-        255 (red)      -> rot
-    """
-    # Reihenfolge M U S S den Klassen-INDIZES entsprechen (index 0..4)
     palette = np.array([
-        [0,   0,   0],    #background class
-        [255, 255, 0],     # yellow class -> 40
-        [0,   0, 255],     # -> 80 (blue)      -> blue
-        [0,  255, 0],      # -> 150 (green)    -> green
-        [255, 0,   0],     # -> 255 (red)      -> red
+        [0,   0,   0],     # index 0 -> 0 (background) -> black
+        [255, 255, 0],     # index 1 -> 40 (blue)      -> blue
+        [0, 0,   255],     # index 2 -> 80 (yellow)    -> yellow
+        [0,  255, 0],      # index 3 -> 150 (green)    -> green
+        [255, 0,   0],     # index 4 -> 255 (red)      -> red
     ], dtype=np.uint8)
-
-    colors = palette[mask_idx]  # mask_idx ist bereits Klassen-INDEX
+    colors = palette[mask_idx % len(palette)]
     color_mask = Image.fromarray(colors, mode="RGB").resize(rgb_img.size, Image.NEAREST)
 
     overlay = rgb_img.convert("RGBA").copy()
@@ -148,7 +135,6 @@ def make_overlay(rgb_img: Image.Image, mask_idx: np.ndarray, alpha: float = 0.5)
     cm.putalpha(int(alpha * 255))
     overlay.alpha_composite(cm)
     return overlay
-
 
 def apply_exclusion_rule(pred_idx: np.ndarray, class_values: list[int],threshold: float = 0.01) -> np.ndarray:
     """
@@ -173,11 +159,10 @@ def apply_exclusion_rule(pred_idx: np.ndarray, class_values: list[int],threshold
 
     return pred_idx
 
-
 @torch.no_grad()
 def predict_img(model: nn.Module,
                 full_img: Image.Image,
-                device: torch.device) -> tuple[np.ndarray, Image.Image]:
+                device: torch.device) -> np.ndarray:
     """
     Gibt die vorhergesagten Klassenindizes (H x W) als numpy.int32 zurück.
     """
@@ -195,10 +180,7 @@ def predict_img(model: nn.Module,
     logits = F.interpolate(logits, size=full_img.size[::-1], mode='bilinear', align_corners=False)
     probs  = F.softmax(logits, dim=1)
     pred   = torch.argmax(probs, dim=1).squeeze(0).cpu().numpy().astype(np.int32)
-
-    # --> Exclusion Rule anwenden (40/80 -> kein 255)
     pred = apply_exclusion_rule(pred, CLASS_VALUES)
-
     return pred, full_img  # Bild ggf. skaliert zurückgeben fürs Overlay
 
 
@@ -208,7 +190,6 @@ def load_model(checkpoint_path: str, n_classes: int, device: torch.device) -> nn
     model.load_state_dict(ckpt)
     model.eval()
     return model
-
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -227,9 +208,11 @@ def main():
         img = Image.open(img_path).convert("RGB")
         pred_idx, resized_img = predict_img(model, img, device)
 
+
         # Graustufenmaske mit CLASS_VALUES
         mask_gray = to_grayscale_mask(pred_idx, CLASS_VALUES)
-        mask_img = Image.fromarray(mask_gray).convert('L')  # echte Graustufe
+        mask_img = Image.fromarray(mask_gray)
+        mask_img = mask_img.convert('L')  # echte Graustufe
 
         stem = img_path.stem
         mask_out = out_dir / f"{stem}_mask.png"

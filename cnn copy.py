@@ -265,10 +265,28 @@ def dice_coef(pred, target, eps=1e-6):
 
 def weighted_cross_entropy_loss(logits, masks, class_weights):
     return F.cross_entropy(logits, masks, weight=class_weights)
+def _dice_eval(logits, masks_idx, n_classes, exclude_bg=True):
+    # logits: (B, C, H, W), masks_idx: (B, H, W) mit Klassen-IDs 0..C-1
+    probs = torch.softmax(logits, dim=1)
+    preds_idx = probs.argmax(dim=1)                                 # (B, H, W)
+    preds_1h  = torch.nn.functional.one_hot(preds_idx, n_classes)   # (B, H, W, C)
+    preds_1h  = preds_1h.permute(0, 3, 1, 2).float()                 # (B, C, H, W)
+    masks_1h  = torch.nn.functional.one_hot(masks_idx, n_classes)    # (B, H, W, C)
+    masks_1h  = masks_1h.permute(0, 3, 1, 2).float()                 # (B, C, H, W)
 
+    # Per-Klasse Dice (numerisch stabil)
+    eps = 1e-7
+    inter = (preds_1h * masks_1h).sum(dim=(0, 2, 3))                 # (C,)
+    union = (preds_1h + masks_1h).sum(dim=(0, 2, 3))                 # (C,)
+    dice_per_class = (2.0 * inter + eps) / (union + eps)             # (C,)
+
+    if exclude_bg and n_classes > 1:
+        dice_per_class = dice_per_class[1:]  # Klasse 0 als Hintergrund
+    return dice_per_class.mean().item()
 # =========================
 #   MAIN
 # =========================
+
 if __name__ == "__main__":
     # --- Parameter ---
     img_dir      = "images/imgs"
@@ -290,25 +308,32 @@ if __name__ == "__main__":
     device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     amp      = torch.cuda.is_available()
 
+    # --- Konfusionsmatrix-Optionen ---
+    bg_index = 0          # falls Klasse 0 = Hintergrund ist
+    save_confmats = True  # CSV je Epoche speichern
+
     # --- H5 erzeugen (einmalig) ---
     build_h5_dataset(
-            img_dir, mask_dir, out_path=h5_path,
-            class_values=class_values,
-            patch_size=patch_size, overlap=overlap, resize_half=resize_half,
-            val_split=val_split, seed=seed, compression="lzf")
+        img_dir, mask_dir, out_path=h5_path,
+        class_values=class_values,
+        patch_size=patch_size, overlap=overlap, resize_half=resize_half,
+        val_split=val_split, seed=seed, compression="lzf"
+    )
 
     # --- Dataset / Loader ---
     train_ds = H5SegDataset(h5_path, split=0, class_values=class_values)
     val_ds   = H5SegDataset(h5_path, split=1, class_values=class_values)
 
-
-    #Variante B – schneller (nachdem es läuft, gern aufdrehen)
-    train_loader = DataLoader(train_ds, batch_size=8, shuffle=True,
-                               num_workers=nw, pin_memory=True,
-                               persistent_workers=True, prefetch_factor=2)
-    val_loader   = DataLoader(val_ds,   batch_size=8, shuffle=False,
-                               num_workers=nw, pin_memory=True,
-                               persistent_workers=True)
+    train_loader = DataLoader(
+        train_ds, batch_size=bs, shuffle=True,
+        num_workers=nw, pin_memory=True,
+        persistent_workers=True, prefetch_factor=2
+    )
+    val_loader = DataLoader(
+        val_ds, batch_size=bs, shuffle=False,
+        num_workers=nw, pin_memory=True,
+        persistent_workers=True
+    )
 
     # --- Modell/Optim/Scheduler ---
     model = UNet(n_classes).to(device)
@@ -318,7 +343,9 @@ if __name__ == "__main__":
     best_iou = 0.0
 
     # --- Class Weights (aus H5, nur Train-Split) ---
-    class_weights = compute_class_weights_from_h5(h5_path, split=0, n_classes=n_classes, class_values=class_values).to(device)
+    class_weights = compute_class_weights_from_h5(
+        h5_path, split=0, n_classes=n_classes, class_values=class_values
+    ).to(device)
     print("Class weights:", class_weights.tolist())
 
     # --- Optional: vorhandenes Modell laden ---
@@ -332,6 +359,7 @@ if __name__ == "__main__":
     losses, val_losses = [], []
 
     for epoch in range(epochs):
+        # ------ Train ------
         model.train()
         train_loss = 0.0
 
@@ -342,7 +370,6 @@ if __name__ == "__main__":
             with torch.cuda.amp.autocast(enabled=amp):
                 logits = model(imgs)
                 loss = weighted_cross_entropy_loss(logits, masks, class_weights)
-
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -352,30 +379,89 @@ if __name__ == "__main__":
         train_loss /= max(1, len(train_loader))
         losses.append(train_loss)
 
-        # ------ Validation ------
+        # ------ Validation (+ Konfusionsmatrix) ------
         model.eval()
         val_loss, val_dice = 0.0, 0.0
-        with torch.no_grad(), torch.amp.autocast('cuda',enabled=amp):
+
+        # Konfusionsmatrix über alle Val-Batches kumulieren
+        cm = torch.zeros((n_classes, n_classes), dtype=torch.long, device='cpu')
+
+        with torch.no_grad(), torch.amp.autocast('cuda', enabled=amp):
             for imgs, masks in tqdm(val_loader, desc="Val"):
                 imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
                 logits = model(imgs)
-                preds = F.softmax(logits, dim=1)
 
+                # Loss/Dice
                 val_loss += F.cross_entropy(logits, masks, weight=class_weights).item()
-                masks_one_hot = F.one_hot(masks, num_classes=n_classes).permute(0, 3, 1, 2).float()
-                val_dice += dice_coef(preds, masks_one_hot).item()
+                val_dice += _dice_eval(logits, masks, n_classes=n_classes, exclude_bg=True)
+
+                # Vorhersagen -> Klassenindizes [B,H,W]
+                preds = torch.argmax(logits, dim=1)
+
+                # Für die Konfusionsmatrix auf CPU und flach machen
+                y_true = masks.detach().to('cpu').view(-1)
+                y_pred = preds.detach().to('cpu').view(-1)
+
+                # Gültige Labels (0..n_classes-1); schützt gegen evtl. Ignore-IDs
+                valid = (y_true >= 0) & (y_true < n_classes)
+                y_true = y_true[valid]
+                y_pred = y_pred[valid]
+
+                # Paar-IDs bilden und via bincount akkumulieren
+                idx = y_true * n_classes + y_pred
+                binc = torch.bincount(idx, minlength=n_classes * n_classes)
+                cm += binc.view(n_classes, n_classes)
 
         val_loss /= max(1, len(val_loader))
         val_dice /= max(1, len(val_loader))
         val_losses.append(val_loss)
         scheduler.step(val_loss)
 
-        print(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}")
-        with open("log_filip.txt","+a") as f:
-            f.write(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}\n")
-            f.close()
+        # --- Optional: Konfusionsmatrix ohne Hintergrund ---
+        cm_no_bg = cm
+        if 0 <= bg_index < n_classes:
+            if bg_index == 0:
+                cm_no_bg = cm[1:, 1:].clone()
+            else:
+                top_left     = cm[:bg_index, :bg_index]
+                top_right    = cm[:bg_index, bg_index+1:]
+                bottom_left  = cm[bg_index+1:, :bg_index]
+                bottom_right = cm[bg_index+1:, bg_index+1:]
+                cm_no_bg = torch.cat([torch.cat([top_left, top_right], dim=1),
+                                      torch.cat([bottom_left, bottom_right], dim=1)], dim=0)
+
+        # Ausgeben
+        print("\nConfusion Matrix (mit Hintergrund):\n", cm.numpy())
+        if 0 <= bg_index < n_classes:
+            print("\nConfusion Matrix (ohne Hintergrund):\n", cm_no_bg.numpy())
+
+        # Speichern (CSV)
+        if save_confmats:
+            np.savetxt(f"confmat_epoch_{epoch:03d}.csv", cm.numpy(), fmt="%d", delimiter=",")
+            if 0 <= bg_index < n_classes:
+                np.savetxt(f"confmat_noBG_epoch_{epoch:03d}.csv", cm_no_bg.numpy(), fmt="%d", delimiter=",")
+
+        # ------ Train-Dice (schnelle Stichprobe) ------
+        model.eval()
+        train_dice_eval = 0.0
+        n_batches = 0
+        with torch.no_grad(), torch.amp.autocast(device_type='cuda', enabled=amp):
+            for imgs, masks in train_loader:
+                imgs, masks = imgs.to(device, non_blocking=True), masks.to(device, non_blocking=True)
+                logits = model(imgs)
+                train_dice_eval += _dice_eval(logits, masks, n_classes=n_classes, exclude_bg=True)
+                n_batches += 1
+                if n_batches >= 4:   # schnell & repräsentativ
+                    break
+        train_dice = train_dice_eval / max(1, n_batches)
+
+        print(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Train Dice: {train_dice:.4f} "
+              f"| Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}")
+
+        with open("log_filip.txt", "+a") as f:
+            f.write(f"Epoch {epoch}  Train Loss: {train_loss:.4f} | Train Dice: {train_dice:.4f} "
+                    f"| Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f}\n")
+
         if val_dice > best_iou:
             best_iou = val_dice
             torch.save(model.state_dict(), checkpoint)
-
-# %%

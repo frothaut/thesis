@@ -84,7 +84,7 @@ def convert_with_darktable(src: Path, dst: Path, nr):
         n = 1
     if nr >601 and nr <828:
         n = 2
-    XMP_PATH = Path(f"E:/Rothaut_Masterthesis/thesis/exif_dummy.DNG{n}.xmp")
+    XMP_PATH = Path(f"E:/Rothaut_Masterthesis/thesis/exif_dummy.DNG3.xmp")
     if XMP_PATH:
         
         cmd.append(XMP_PATH.as_posix())
