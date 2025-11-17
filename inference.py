@@ -19,13 +19,13 @@ from tqdm import tqdm
 CHECKPOINT_PATH = "best_unet.pth"               # dein gespeichertes Modell
 INPUT_DIR       = "predictions/testdaten"       # Eingabe-Bilder
 OUTPUT_DIR      = "predictions/predictions"     # Ausgabepfade werden erstellt
-CLASS_VALUES    = [0, 40, 80, 150, 255]         # 0=background, 40=blue, 80=yellow, 150=green, 255=red
+CLASS_VALUES    = [0, 40, 80, 150, 255]             # Graustufen je Klassenindex 0 = background, 40 = blue, 80 = yellow, 150= green, 255 = red
 N_CLASSES       = 5
 SCALE_FACTOR    = 0.5                           # wie im Training: Breite/Höhe halbieren
 SAVE_OVERLAY    = True                          # optionales Overlay-PNG zusätzlich speichern
 OVERLAY_ALPHA   = 0.5                           # Transparenz für Overlay
 VALID_EXTS      = (".jpg", ".jpeg", ".png", ".tif", ".tiff")
-
+GT_DIR = r"E:\Rothaut_Masterthesis\thesis\images\masks"
 
 # ==============
 # Modell-Definition
@@ -110,37 +110,97 @@ def build_transform():
 
 
 def to_grayscale_mask(pred_idx: np.ndarray, class_values: list[int]) -> np.ndarray:
-    """Mappt Klassen-INDIZES -> gewünschte Graustufenwerte aus CLASS_VALUES."""
     out = np.zeros_like(pred_idx, dtype=np.uint8)
     for i, val in enumerate(class_values):
         out[pred_idx == i] = val
     return out
-
-
 def class_index_map(class_values: list[int]) -> dict[int, int]:
     """Erzeugt Mapping von Klasse-WERT -> Klassen-INDEX."""
     return {v: i for i, v in enumerate(class_values)}
+def load_gt_mask_as_indices(gt_path: Path, target_shape: tuple[int, int], class_values: list[int]) -> np.ndarray:
+    """
+    Lädt eine GT-Graustufenmaske, resampelt sie (falls nötig) auf target_shape (H, W)
+    und gibt ein Array aus Klassenindizes (0..N-1) zurück.
+    Pixel mit Werten, die nicht in class_values vorkommen, erhalten Index -1.
+    """
+    img = Image.open(gt_path).convert("L")
+
+    h, w = target_shape
+    if img.size != (w, h):
+        img = img.resize((w, h), Image.NEAREST)
+
+    gt_gray = np.array(img, dtype=np.uint8)
+    v2i = class_index_map(class_values)
+
+    gt_idx = np.full(gt_gray.shape, -1, dtype=np.int32)
+    for i, v in enumerate(class_values):
+        gt_idx[gt_gray == v] = i
+
+    return gt_idx
+
+def update_confusion(conf_counts: np.ndarray,
+                     pred_idx: np.ndarray,
+                     gt_idx: np.ndarray):
+    """
+    Aktualisiert die Konfusionsmatrix (TP, FP, TN, FN) pro Klasse.
+    conf_counts: shape (N_CLASSES, 4) mit Spalten [TP, FP, TN, FN].
+    """
+    assert conf_counts.shape[1] == 4, "conf_counts muss Form (N_CLASSES, 4) haben"
+
+    # Nur Pixel mit gültigen GT-Klassen (gt_idx >= 0) berücksichtigen
+    valid = (gt_idx >= 0) & (gt_idx != 0)
+    if not np.any(valid):
+        return
+
+    n_classes = conf_counts.shape[0]
+    for c in range(1, n_classes):
+        pred_c = (pred_idx == c)
+        gt_c   = (gt_idx == c)
+
+        tp = np.sum(pred_c & gt_c & valid)
+        fp = np.sum(pred_c & (~gt_c) & valid)
+        fn = np.sum((~pred_c) & gt_c & valid)
+        tn = np.sum((~pred_c) & (~gt_c) & valid)
+
+        conf_counts[c, 0] += tp
+        conf_counts[c, 1] += fp
+        conf_counts[c, 2] += tn
+        conf_counts[c, 3] += fn
 
 
+def print_confusion(conf_counts: np.ndarray, class_values: list[int]):
+    """
+    Gibt TP, FP, TN, FN in Prozent für jede Klasse aus.
+    Prozentwerte beziehen sich jeweils auf TP+FP+TN+FN der Klasse.
+    """
+    n_classes = conf_counts.shape[0]
+    print("\nKonfusionsmatrix (Pixel-basiert, pro Klasse):")
+    print("Klasse (Grauwert) | TP%    | FP%    | TN%    | FN%    | (Counts TP/FP/TN/FN)")
+
+    for c in range(1, n_classes):
+        tp, fp, tn, fn = conf_counts[c]
+        total = tp + fp + tn + fn
+        if total == 0:
+            tp_p = fp_p = tn_p = fn_p = 0.0
+        else:
+            tp_p = 100.0 * tp / total
+            fp_p = 100.0 * fp / total
+            tn_p = 100.0 * tn / total
+            fn_p = 100.0 * fn / total
+
+        gv = class_values[c] if c < len(class_values) else c
+        print(f"{c} ({gv:3d})          | "
+              f"{tp_p:6.2f} | {fp_p:6.2f} | {tn_p:6.2f} | {fn_p:6.2f} | "
+              f"({tp}/{fp}/{tn}/{fn})")
 def make_overlay(rgb_img: Image.Image, mask_idx: np.ndarray, alpha: float = 0.5) -> Image.Image:
-    """
-    Erzeugt ein farbiges Overlay, dessen Farben EXAKT den CLASS_VALUES-Kommentaren entsprechen:
-        0 (background) -> schwarz
-        40 (blue)      -> gelb
-        80 (yellow)    -> blau
-        150 (green)    -> grün
-        255 (red)      -> rot
-    """
-    # Reihenfolge M U S S den Klassen-INDIZES entsprechen (index 0..4)
     palette = np.array([
-        [0,   0,   0],    #background class
-        [255, 255, 0],     # yellow class -> 40
-        [0,   0, 255],     # -> 80 (blue)      -> blue
-        [0,  255, 0],      # -> 150 (green)    -> green
-        [255, 0,   0],     # -> 255 (red)      -> red
+        [0,   0,   0],     # index 0 -> 0 (background) -> black
+        [255, 255, 0],     # index 1 -> 40 (blue)      -> blue
+        [0, 0,   255],     # index 2 -> 80 (yellow)    -> yellow
+        [0,  255, 0],      # index 3 -> 150 (green)    -> green
+        [255, 0,   0],     # index 4 -> 255 (red)      -> red
     ], dtype=np.uint8)
-
-    colors = palette[mask_idx]  # mask_idx ist bereits Klassen-INDEX
+    colors = palette[mask_idx % len(palette)]
     color_mask = Image.fromarray(colors, mode="RGB").resize(rgb_img.size, Image.NEAREST)
 
     overlay = rgb_img.convert("RGBA").copy()
@@ -148,7 +208,6 @@ def make_overlay(rgb_img: Image.Image, mask_idx: np.ndarray, alpha: float = 0.5)
     cm.putalpha(int(alpha * 255))
     overlay.alpha_composite(cm)
     return overlay
-
 
 def apply_exclusion_rule(pred_idx: np.ndarray, class_values: list[int],threshold: float = 0.01) -> np.ndarray:
     """
@@ -173,11 +232,10 @@ def apply_exclusion_rule(pred_idx: np.ndarray, class_values: list[int],threshold
 
     return pred_idx
 
-
 @torch.no_grad()
 def predict_img(model: nn.Module,
                 full_img: Image.Image,
-                device: torch.device) -> tuple[np.ndarray, Image.Image]:
+                device: torch.device) -> np.ndarray:
     """
     Gibt die vorhergesagten Klassenindizes (H x W) als numpy.int32 zurück.
     """
@@ -195,10 +253,7 @@ def predict_img(model: nn.Module,
     logits = F.interpolate(logits, size=full_img.size[::-1], mode='bilinear', align_corners=False)
     probs  = F.softmax(logits, dim=1)
     pred   = torch.argmax(probs, dim=1).squeeze(0).cpu().numpy().astype(np.int32)
-
-    # --> Exclusion Rule anwenden (40/80 -> kein 255)
     pred = apply_exclusion_rule(pred, CLASS_VALUES)
-
     return pred, full_img  # Bild ggf. skaliert zurückgeben fürs Overlay
 
 
@@ -208,14 +263,14 @@ def load_model(checkpoint_path: str, n_classes: int, device: torch.device) -> nn
     model.load_state_dict(ckpt)
     model.eval()
     return model
-
-
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = load_model(CHECKPOINT_PATH, N_CLASSES, device)
 
     in_dir = Path(INPUT_DIR)
     out_dir = Path(OUTPUT_DIR)
+    gt_dir = Path(GT_DIR)
+
     ensure_dir(out_dir)
 
     files = [p for p in sorted(in_dir.rglob("*")) if p.suffix.lower() in VALID_EXTS]
@@ -223,24 +278,47 @@ def main():
         print(f"Keine Eingabebilder in {in_dir} gefunden. Erwarte Endungen: {VALID_EXTS}")
         return
 
+    # Konfusionsmatrix: pro Klasse [TP, FP, TN, FN]
+    conf_counts = np.zeros((N_CLASSES, 4), dtype=np.int64)
+    num_with_gt = 0
+
     for img_path in tqdm(files, desc="Inferenz"):
         img = Image.open(img_path).convert("RGB")
         pred_idx, resized_img = predict_img(model, img, device)
 
         # Graustufenmaske mit CLASS_VALUES
         mask_gray = to_grayscale_mask(pred_idx, CLASS_VALUES)
-        mask_img = Image.fromarray(mask_gray).convert('L')  # echte Graustufe
+        mask_img = Image.fromarray(mask_gray)
+        mask_img = mask_img.convert('L')  # echte Graustufe
 
         stem = img_path.stem
+        nr = stem.replace("DJI_", "")
+        gt_path = gt_dir / f"mask_{nr}.png"
         mask_out = out_dir / f"{stem}_mask.png"
         mask_img.save(mask_out)
 
+        # Overlay speichern (optional)
         if SAVE_OVERLAY:
             overlay_img = make_overlay(resized_img, pred_idx, OVERLAY_ALPHA)
             overlay_out = out_dir / f"{stem}_overlay.png"
             overlay_img.save(overlay_out)
 
+        
+        if gt_path.exists():
+            print("Found GT: ", gt_path)
+            gt_idx = load_gt_mask_as_indices(gt_path,
+                                             target_shape=pred_idx.shape,
+                                             class_values=CLASS_VALUES)
+            update_confusion(conf_counts, pred_idx, gt_idx)
+            num_with_gt += 1
+        # Falls es keine passende GT gibt, wird das Bild einfach für die Metrik ignoriert.
+        else:
+            print("Found no GT for ", stem)
     print(f"Fertig. Ergebnisse liegen in: {out_dir.resolve()}")
+    print(f"Anzahl ausgewerteter Bilder mit GT: {num_with_gt}")
+
+    print_confusion(conf_counts, CLASS_VALUES)
+
 
 
 if __name__ == "__main__":

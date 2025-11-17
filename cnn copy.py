@@ -302,7 +302,7 @@ if __name__ == "__main__":
     seed         = 42
 
     lr       = 1e-4
-    epochs   = 70
+    epochs   = 80
     bs       = 8
     nw       = 4  # num_workers
     device   = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -398,48 +398,10 @@ if __name__ == "__main__":
                 # Vorhersagen -> Klassenindizes [B,H,W]
                 preds = torch.argmax(logits, dim=1)
 
-                # Für die Konfusionsmatrix auf CPU und flach machen
-                y_true = masks.detach().to('cpu').view(-1)
-                y_pred = preds.detach().to('cpu').view(-1)
-
-                # Gültige Labels (0..n_classes-1); schützt gegen evtl. Ignore-IDs
-                valid = (y_true >= 0) & (y_true < n_classes)
-                y_true = y_true[valid]
-                y_pred = y_pred[valid]
-
-                # Paar-IDs bilden und via bincount akkumulieren
-                idx = y_true * n_classes + y_pred
-                binc = torch.bincount(idx, minlength=n_classes * n_classes)
-                cm += binc.view(n_classes, n_classes)
-
         val_loss /= max(1, len(val_loader))
         val_dice /= max(1, len(val_loader))
         val_losses.append(val_loss)
         scheduler.step(val_loss)
-
-        # --- Optional: Konfusionsmatrix ohne Hintergrund ---
-        cm_no_bg = cm
-        if 0 <= bg_index < n_classes:
-            if bg_index == 0:
-                cm_no_bg = cm[1:, 1:].clone()
-            else:
-                top_left     = cm[:bg_index, :bg_index]
-                top_right    = cm[:bg_index, bg_index+1:]
-                bottom_left  = cm[bg_index+1:, :bg_index]
-                bottom_right = cm[bg_index+1:, bg_index+1:]
-                cm_no_bg = torch.cat([torch.cat([top_left, top_right], dim=1),
-                                      torch.cat([bottom_left, bottom_right], dim=1)], dim=0)
-
-        # Ausgeben
-        print("\nConfusion Matrix (mit Hintergrund):\n", cm.numpy())
-        if 0 <= bg_index < n_classes:
-            print("\nConfusion Matrix (ohne Hintergrund):\n", cm_no_bg.numpy())
-
-        # Speichern (CSV)
-        if save_confmats:
-            np.savetxt(f"confmat_epoch_{epoch:03d}.csv", cm.numpy(), fmt="%d", delimiter=",")
-            if 0 <= bg_index < n_classes:
-                np.savetxt(f"confmat_noBG_epoch_{epoch:03d}.csv", cm_no_bg.numpy(), fmt="%d", delimiter=",")
 
         # ------ Train-Dice (schnelle Stichprobe) ------
         model.eval()
