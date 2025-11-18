@@ -25,7 +25,7 @@ SCALE_FACTOR    = 0.5                           # wie im Training: Breite/Höhe 
 SAVE_OVERLAY    = True                          # optionales Overlay-PNG zusätzlich speichern
 OVERLAY_ALPHA   = 0.5                           # Transparenz für Overlay
 VALID_EXTS      = (".jpg", ".jpeg", ".png", ".tif", ".tiff")
-GT_DIR = r"E:\Rothaut_Masterthesis\thesis\images\masks"
+GT_DIR = "predictions/test_masks"
 
 # ==============
 # Modell-Definition
